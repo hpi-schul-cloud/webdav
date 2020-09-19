@@ -49,7 +49,7 @@ function WebFileSystem()
     r.constructor = WebFileSystem;
     r.props = new webdav.LocalPropertyManager();
     r.locks = new webdav.LocalLockManager();
-    r.url = url;
+    //r.url = url;
 
     r._fastExistCheck = function(ctx, path, callback)
     {
