@@ -37,6 +37,8 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     _openReadStream = function (path, info, callback) {
+        // TODO: Request from HPI schulcloud-server using JWT
+
         const stream = request.get(this.url);
         stream.end();
         callback(null, stream);
