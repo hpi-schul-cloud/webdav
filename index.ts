@@ -1,5 +1,4 @@
-
-const webdav = require('webdav-server').v2;
+import {v2 as webdav} from "webdav-server";
 
 // User manager (tells who are the users)
 const userManager = new webdav.SimpleUserManager();
@@ -86,6 +85,7 @@ const server = new webdav.WebDAVServer({
     httpAuthentication: new webdav.HTTPDigestAuthentication(userManager, 'Default realm'),
     privilegeManager: privilegeManager
 });
+
 server.rootFileSystem().addSubTree(server.createExternalContext(), {
     'kurse': {
         'k1': webdav.ResourceType.Directory,  // /folder1/file1.txt
@@ -94,8 +94,9 @@ server.rootFileSystem().addSubTree(server.createExternalContext(), {
     'teams': {
         't1': webdav.ResourceType.Directory,  // /folder1/file1.txt
         't2': webdav.ResourceType.Directory   // /folder1/file2.txt                     // /folder1
-    },
+    }
 });
+
 server.setFileSystem('courses', new WebFileSystem());
 
 server.start((s) => console.log('Ready on port', s.address().port));
