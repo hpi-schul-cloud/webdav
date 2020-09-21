@@ -42,7 +42,7 @@ function WebFileSystemSerializer()
         constructor: WebFileSystemSerializer
     }
 }
-function WebFileSystem()
+function WebFileSystem() : webdav.FileSystem
 {
     const r = new webdav.FileSystem(new WebFileSystemSerializer());
     r.constructor = WebFileSystem;
@@ -97,6 +97,6 @@ server.rootFileSystem().addSubTree(server.createExternalContext(), {
     }
 });
 
-server.setFileSystem('courses', new WebFileSystem());
+server.setFileSystem('courses', new WebFileSystem(), () => {});
 
 server.start((s) => console.log('Ready on port', s.address().port));
