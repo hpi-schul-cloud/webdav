@@ -87,10 +87,6 @@ const server = new webdav.WebDAVServer({
     privilegeManager: privilegeManager
 });
 server.rootFileSystem().addSubTree(server.createExternalContext(), {
-    'test': {
-        'file1.txt': webdav.ResourceType.File,  // /folder1/file1.txt
-        'file2.txt': webdav.ResourceType.File   // /folder1/file2.txt                     // /folder1
-    },
     'kurse': {
         'k1': webdav.ResourceType.Directory,  // /folder1/file1.txt
         'k2': webdav.ResourceType.Directory   // /folder1/file2.txt                     // /folder1
