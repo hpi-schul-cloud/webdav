@@ -1,5 +1,8 @@
 import {v2 as webdav} from "webdav-server";
 import WebFileSystem from "./WebFileSystem";
+import {AddressInfo} from "net";
+
+require('dotenv').config()
 
 // User manager (tells who are the users)
 const userManager = new webdav.SimpleUserManager();
@@ -16,4 +19,7 @@ const server = new webdav.WebDAVServer({
 
 server.setFileSystem('courses', new WebFileSystem('/courses'), () => {});
 
-server.start((s) => console.log('Ready on port', s.address().port));
+server.start((s) => {
+    const { port } = s.address() as AddressInfo
+    console.log('Ready on port ' + port)
+});

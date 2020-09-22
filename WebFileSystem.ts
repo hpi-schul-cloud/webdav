@@ -1,5 +1,5 @@
 import {v2 as webdav} from "webdav-server";
-import * as request from 'request'
+import * as fetch from 'node-fetch'
 
 class WebFileSystemSerializer implements webdav.FileSystemSerializer {
     uid(): string {
@@ -37,11 +37,15 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     _openReadStream = function (path, info, callback) {
-        // TODO: Request from HPI schulcloud-server using JWT
-
-        const stream = request.get(this.url);
-        stream.end();
-        callback(null, stream);
+        fetch('http://localhost:3030/files', {
+            headers: {
+                'Authorization': 'Bearer ' + process.env.JWT
+            }
+        })
+            .then(res => {
+                console.log(res)
+                callback(null, res.body)
+            })
     }
 
     _propertyManager = function (path, info, callback) {
