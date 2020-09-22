@@ -37,7 +37,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     _openReadStream = function (path, info, callback) {
-        fetch('http://localhost:3030/files', {
+        fetch(process.env.BASE_URL + '/files', {
             headers: {
                 'Authorization': 'Bearer ' + process.env.JWT
             }
