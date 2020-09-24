@@ -17,7 +17,14 @@ const server = new webdav.WebDAVServer({
     privilegeManager: privilegeManager
 });
 
-server.setFileSystem('courses', new WebFileSystem('/courses'), () => {});
+const coursesSystem = new WebFileSystem('/courses')
+coursesSystem.addSubTree(server.createExternalContext(), {
+    'mathe': {
+        'test.txt': webdav.ResourceType.File
+    }
+}, () => {})
+
+server.setFileSystem('courses', coursesSystem, () => {});
 
 server.start((s) => {
     const { port } = s.address() as AddressInfo

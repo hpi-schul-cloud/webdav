@@ -1,5 +1,17 @@
 import {v2 as webdav} from "webdav-server";
 import * as fetch from 'node-fetch'
+import {Path} from "webdav-server/lib/manager/v2/Path";
+import {RequestContext} from "webdav-server/lib/server/v2/RequestContext";
+import {
+    LockManagerInfo,
+    OpenReadStreamInfo, PropertyManagerInfo,
+    ReadDirInfo,
+    TypeInfo
+} from "webdav-server/lib/manager/v2/fileSystem/ContextInfo";
+import {ReturnCallback} from "webdav-server/lib/manager/v2/fileSystem/CommonTypes";
+import {Readable} from "stream";
+import {ILockManager} from "webdav-server/lib/manager/v2/fileSystem/LockManager";
+import {IPropertyManager} from "webdav-server/lib/manager/v2/fileSystem/PropertyManager";
 
 class WebFileSystemSerializer implements webdav.FileSystemSerializer {
     uid(): string {
@@ -25,38 +37,45 @@ class WebFileSystem extends webdav.FileSystem {
     props: webdav.IPropertyManager;
     locks: webdav.ILockManager;
 
-    constructor(public url: string) {
+    constructor (public url: string) {
         super(new WebFileSystemSerializer());
 
         this.props = new webdav.LocalPropertyManager();
         this.locks = new webdav.LocalLockManager();
     }
 
-    _fastExistCheck = function (ctx, path, callback) {
+    _fastExistCheck (ctx : RequestContext, path : Path, callback : (exists : boolean) => void) {
         callback(path.isRoot());
     }
 
-    _openReadStream = function (path, info, callback) {
-        fetch(process.env.BASE_URL + '/files', {
+    _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) {
+        fetch(process.env.BASE_URL + '/courses', {
             headers: {
                 'Authorization': 'Bearer ' + process.env.JWT
             }
         })
             .then(res => {
-                console.log(res)
                 callback(null, res.body)
+                return res.json()
+            })
+            .then(json => {
+                console.log(json)
             })
     }
 
-    _propertyManager = function (path, info, callback) {
+    _readDir (path: Path, info: ReadDirInfo, callback: ReturnCallback<string[] | Path[]>) : void {
+
+    }
+
+    _propertyManager (path: Path, info: PropertyManagerInfo, callback: ReturnCallback<IPropertyManager>) {
         callback(null, this.props);
     }
 
-    _lockManager = function (path, info, callback) {
+    _lockManager (path: Path, info:LockManagerInfo, callback:ReturnCallback<ILockManager>) {
         callback(null, this.locks);
     }
 
-    _type = function (path, info, callback) {
+    _type (path: Path, info: TypeInfo, callback: ReturnCallback<ReturnType<any>>) {
         callback(null, webdav.ResourceType.File);
     }
 }
