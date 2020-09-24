@@ -2,7 +2,8 @@
   "name": "webdav_experiment",
   "version": "1.0.0",
   "scripts": {
-    "start": "tsc && node index.js"
+    "start": "tsc && node index.js",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@types/node": "^14.11.2",

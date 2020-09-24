@@ -4,6 +4,7 @@
 1. Clone Repository
 1. Run `npm install`
 1. Run `npm run start`
+1. Connect to `http://localhost:1900`
 
 ## TODO for MVP
 - [ ] Handle user auth

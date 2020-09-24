@@ -17,14 +17,11 @@ const server = new webdav.WebDAVServer({
     privilegeManager: privilegeManager
 });
 
-const coursesSystem = new WebFileSystem('/courses')
-coursesSystem.addSubTree(server.createExternalContext(), {
-    'mathe': {
-        'test.txt': webdav.ResourceType.File
+server.setFileSystem('courses', new WebFileSystem(), (successed) => {
+    if (successed) {
+        console.log("Successfully mounted file system!")
     }
-}, () => {})
-
-server.setFileSystem('courses', coursesSystem, () => {});
+});
 
 server.start((s) => {
     const { port } = s.address() as AddressInfo
