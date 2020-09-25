@@ -1,8 +1,11 @@
 import {v2 as webdav} from "webdav-server";
 import WebFileSystem from "./WebFileSystem";
+import UserManager from "./UserManager";
 import {AddressInfo} from "net";
 
 require('dotenv').config()
+
+// TODO: User Management (same credentials as in web client)
 
 // User manager (tells who are the users)
 const userManager = new webdav.SimpleUserManager();
@@ -17,8 +20,8 @@ const server = new webdav.WebDAVServer({
     privilegeManager: privilegeManager
 });
 
-server.setFileSystem('courses', new WebFileSystem(), (successed) => {
-    if (successed) {
+server.setFileSystem('courses', new WebFileSystem(), (succeeded) => {
+    if (succeeded) {
         console.log("Successfully mounted file system!")
     }
 });
