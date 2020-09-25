@@ -72,13 +72,25 @@ class WebFileSystem extends webdav.FileSystem {
                 }
             })
                 .then(res => res.json())
-                .then(json => {
-                    const files = json['data'].map((course) => course.name)
+                .then(data => {
+                    console.log(data)
+                    const files = data['data'].map((course) => course.id)
                     callback(null, files)
                 })
         } else {
-            console.log("Directory not root")
-            callback(webdav.Errors.ResourceNotFound)
+
+            // TODO: Display filename instead of id (probably best by using metadata)
+
+            fetch(process.env.BASE_URL + '/fileStorage?owner=' + path.rootName() + (path.hasParent() ? '&parent=' + path.fileName() : ''), {
+                headers: {
+                    'Authorization': 'Bearer ' + process.env.JWT
+                }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    const files = data.map((file) => file._id)
+                    callback(null, files)
+                })
         }
     }
 
