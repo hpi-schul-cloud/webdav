@@ -35,6 +35,8 @@ class WebFileSystem extends webdav.FileSystem {
     props: webdav.IPropertyManager;
     locks: webdav.ILockManager;
 
+    // TODO: add parameter to switch between 'courses', 'my files', and 'teams'
+
     constructor () {
         super(new WebFileSystemSerializer());
 

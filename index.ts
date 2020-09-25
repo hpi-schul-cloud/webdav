@@ -22,7 +22,25 @@ const server = new webdav.WebDAVServer({
 
 server.setFileSystem('courses', new WebFileSystem(), (succeeded) => {
     if (succeeded) {
-        console.log("Successfully mounted file system!")
+        console.log("Successfully mounted courses file system!")
+    }
+});
+
+server.setFileSystem('courses', new WebFileSystem(), (succeeded) => {
+    if (succeeded) {
+        console.log("Successfully mounted 'courses' file system!")
+    }
+});
+
+server.setFileSystem('my', new WebFileSystem(), (succeeded) => {
+    if (succeeded) {
+        console.log("Successfully mounted 'my files' file system!")
+    }
+});
+
+server.setFileSystem('teams', new WebFileSystem(), (succeeded) => {
+    if (succeeded) {
+        console.log("Successfully mounted 'teams' file system!")
     }
 });
 
