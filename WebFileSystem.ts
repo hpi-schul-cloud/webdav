@@ -45,28 +45,26 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     _fastExistCheck (ctx : RequestContext, path : Path, callback : (exists : boolean) => void) : void {
-        console.log("Checking existence: " + path + ", " + "isRoot: " + path.isRoot())
-        callback(path.isRoot());
+        console.log("Checking existence: " + path)
+
+        // TODO: Implement real existence check
+
+        callback(true);
     }
 
     _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : void {
         console.log("Reading file: " + path)
-        fetch(process.env.BASE_URL + '/courses', {
-            headers: {
-                'Authorization': 'Bearer ' + process.env.JWT
-            }
-        })
-            .then(res => {
-                callback(null, res.body)
-                return res.json()
-            })
-            .then(json => {
-                console.log(json)
-            })
+
+        // TODO: Actually read file (using fileStorage service - https://github.com/hpi-schul-cloud/schulcloud-server/tree/develop/src/services/fileStorage)
+
+        callback(null, null)
     }
 
     _readDir (path: Path, info: ReadDirInfo, callback: ReturnCallback<string[] | Path[]>) : void {
         console.log("Reading dir: " + path)
+
+        // TODO: Implement directories other than root (using fileStorage service - https://github.com/hpi-schul-cloud/schulcloud-server/tree/develop/src/services/fileStorage)
+
         if (path.isRoot()) {
             fetch(process.env.BASE_URL + '/courses', {
                 headers: {
@@ -96,6 +94,9 @@ class WebFileSystem extends webdav.FileSystem {
 
     _type (path: Path, info: TypeInfo, callback: ReturnCallback<ReturnType<any>>) : void {
         console.log("Checking type: " + path)
+
+        // TODO: Actually check type
+
         callback(null, webdav.ResourceType.Directory);
     }
 }
