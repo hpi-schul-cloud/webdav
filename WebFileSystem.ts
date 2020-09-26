@@ -4,7 +4,8 @@ import {Path} from "webdav-server/lib/manager/v2/Path";
 import {RequestContext} from "webdav-server/lib/server/v2/RequestContext";
 import {
     LockManagerInfo,
-    OpenReadStreamInfo, PropertyManagerInfo,
+    OpenReadStreamInfo,
+    PropertyManagerInfo,
     ReadDirInfo,
     TypeInfo
 } from "webdav-server/lib/manager/v2/fileSystem/ContextInfo";
@@ -34,6 +35,8 @@ class WebFileSystemSerializer implements webdav.FileSystemSerializer {
 class WebFileSystem extends webdav.FileSystem {
     props: webdav.IPropertyManager;
     locks: webdav.ILockManager;
+    currentDirData: Array<any>;
+    currentDir: Path;
 
     // TODO: add parameter to switch between 'courses', 'my files', and 'teams'
 
@@ -42,6 +45,17 @@ class WebFileSystem extends webdav.FileSystem {
 
         this.props = new webdav.LocalPropertyManager();
         this.locks = new webdav.LocalLockManager();
+    }
+
+    async loadDirectoryData (path: Path) : Promise<void> {
+        const res = await fetch(process.env.BASE_URL + '/fileStorage?owner=' + path.rootName() + (path.hasParent() ? '&parent=' + path.fileName() : ''), {
+            headers: {
+                'Authorization': 'Bearer ' + process.env.JWT
+            }
+        })
+
+        this.currentDirData = await res.json()
+        this.currentDir = path
     }
 
     _fastExistCheck (ctx : RequestContext, path : Path, callback : (exists : boolean) => void) : void {
@@ -60,10 +74,8 @@ class WebFileSystem extends webdav.FileSystem {
         callback(null, null)
     }
 
-    _readDir (path: Path, info: ReadDirInfo, callback: ReturnCallback<string[] | Path[]>) : void {
+    async _readDir(path: Path, info: ReadDirInfo, callback: ReturnCallback<string[] | Path[]>): Promise<void> {
         console.log("Reading dir: " + path)
-
-        // TODO: Implement directories other than root (using fileStorage service - https://github.com/hpi-schul-cloud/schulcloud-server/tree/develop/src/services/fileStorage)
 
         if (path.isRoot()) {
             fetch(process.env.BASE_URL + '/courses', {
@@ -73,7 +85,8 @@ class WebFileSystem extends webdav.FileSystem {
             })
                 .then(res => res.json())
                 .then(data => {
-                    console.log(data)
+                    this.currentDirData = data['data']
+                    this.currentDir = path
                     const files = data['data'].map((course) => course.id)
                     callback(null, files)
                 })
@@ -81,16 +94,10 @@ class WebFileSystem extends webdav.FileSystem {
 
             // TODO: Display filename instead of id (probably best by using metadata)
 
-            fetch(process.env.BASE_URL + '/fileStorage?owner=' + path.rootName() + (path.hasParent() ? '&parent=' + path.fileName() : ''), {
-                headers: {
-                    'Authorization': 'Bearer ' + process.env.JWT
-                }
-            })
-                .then(res => res.json())
-                .then(data => {
-                    const files = data.map((file) => file._id)
-                    callback(null, files)
-                })
+            await this.loadDirectoryData(path)
+
+            const files = this.currentDirData.map((file) => file._id)
+            callback(null, files)
         }
     }
 
@@ -104,12 +111,26 @@ class WebFileSystem extends webdav.FileSystem {
         callback(null, this.locks);
     }
 
-    _type (path: Path, info: TypeInfo, callback: ReturnCallback<ReturnType<any>>) : void {
+    async _type(path: Path, info: TypeInfo, callback: ReturnCallback<ReturnType<any>>): Promise<void> {
         console.log("Checking type: " + path)
 
-        // TODO: Actually check type
+        // TODO: Handle route which is not loaded yet
 
-        callback(null, webdav.ResourceType.Directory);
+        if (path.isRoot() || !path.hasParent()) {
+            callback(null, webdav.ResourceType.Directory)
+        } else {
+            if (path.getParent().toString() != this.currentDir.toString()) {
+                await this.loadDirectoryData(path.getParent())
+            }
+
+            const file = this.currentDirData.find((file) => file._id === path.fileName())
+            if (file && file.hasOwnProperty('isDirectory')) {
+                callback(null, file.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File)
+            } else {
+                console.log('File not in directory: ' + path)
+                callback(webdav.Errors.ResourceNotFound)
+            }
+        }
     }
 }
 
