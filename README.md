@@ -8,10 +8,11 @@
 
 ## TODO for MVP
 - [ ] Handle user auth
-- [ ] List users courses
-- [ ] List users directories in a course
-- [ ] List users files in a course
-- [ ] List subdirectories and files in a course
+- [x] List users courses
+- [x] List users directories in a course
+- [x] List users files in a course
+- [x] List subdirectories and files in a course
+- [ ] Open files in a course
 
 ## More TODOs
 - [ ] NextCloud / OwnCloud custom attributes
