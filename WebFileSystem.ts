@@ -47,8 +47,42 @@ class WebFileSystem extends webdav.FileSystem {
         this.resources = new Map();
     }
 
-    async loadDirectoryData (path: Path) : Promise<void> {
+    async loadDirectory (path: Path) : Promise<string[]> {
+        const rootID = this.resources.get('/' + path.rootName()).id;
+        const parentID = this.resources.get(path.toString()).id;
 
+        const res = await fetch(process.env.BASE_URL + '/fileStorage?owner=' + rootID + (parentID != rootID ? '&parent=' + parentID : ''), {
+            headers: {
+                'Authorization': 'Bearer ' + process.env.JWT
+            }
+        })
+
+        const data = await res.json()
+        for (const resource of data) {
+            this.resources.set(path.getChildPath(resource.name).toString(), {
+                type: resource.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
+                id: resource._id
+            });
+        }
+        return data.map((resource) => resource.name)
+    }
+
+    async loadCourses() : Promise<string[]> {
+        const res = await fetch(process.env.BASE_URL + '/courses', {
+            headers: {
+                'Authorization': 'Bearer ' + process.env.JWT
+            }
+        })
+        const data = await res.json()
+
+        for (const course of data['data']) {
+            this.resources.set(new Path([course.name]).toString(), {
+                type: webdav.ResourceType.Directory,
+                id: course.id
+            });
+        }
+
+        return data['data'].map((course) => course.name)
     }
 
     _fastExistCheck (ctx : RequestContext, path : Path, callback : (exists : boolean) => void) : void {
@@ -71,44 +105,14 @@ class WebFileSystem extends webdav.FileSystem {
         console.log("Reading dir: " + path)
 
         if (path.isRoot()) {
-            fetch(process.env.BASE_URL + '/courses', {
-                headers: {
-                    'Authorization': 'Bearer ' + process.env.JWT
-                }
-            })
-                .then(res => res.json())
-                .then(data => {
-                    for (const course of data['data']) {
-                        this.resources.set(path.getChildPath(course.name).toString(), {
-                            type: webdav.ResourceType.Directory,
-                            id: course.id
-                        });
-                    }
-                    const courses = data['data'].map((course) => course.name)
-                    callback(null, courses)
-                })
+            callback(null, await this.loadCourses())
         } else {
             if (this.resources.has(path.toString())) {
-                console.log(this.resources)
-                const rootID = this.resources.get('/' + path.rootName()).id;
-                const parentID = this.resources.get(path.toString()).id;
+                const resources = await this.loadDirectory(path)
 
-                const res = await fetch(process.env.BASE_URL + '/fileStorage?owner=' + rootID + (parentID != rootID ? '&parent=' + parentID : ''), {
-                    headers: {
-                        'Authorization': 'Bearer ' + process.env.JWT
-                    }
-                })
-
-                const data = await res.json()
-                for (const resource of data) {
-                    this.resources.set(path.getChildPath(resource.name).toString(), {
-                        type: resource.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
-                        id: resource._id
-                    });
-                }
-                const resources = data.map((resource) => resource.name)
                 callback(null, resources)
             } else {
+                console.log('Directory could not be read!')
                 callback(webdav.Errors.ResourceNotFound)
             }
         }
@@ -127,15 +131,36 @@ class WebFileSystem extends webdav.FileSystem {
     async _type(path: Path, info: TypeInfo, callback: ReturnCallback<ReturnType<any>>): Promise<void> {
         console.log("Checking type: " + path);
 
-        // TODO: Handle route which is not loaded yet
-
         if (!path.hasParent()) {
             callback(null, webdav.ResourceType.Directory);
         } else if (this.resources.has(path.toString())) {
             callback(null, this.resources.get(path.toString()).type);
         } else {
-            console.log('Resource not found');
-            callback(webdav.Errors.ResourceNotFound);
+            await this.loadCourses()
+            let currentPath = path.getParent()
+            while (!this.resources.has(path.toString())) {
+                if (this.resources.has(currentPath.toString())) {
+                    const resources = await this.loadDirectory(currentPath);
+
+                    if (!resources.includes(path.paths[currentPath.paths.length])) {
+                        console.log('Type could not be identified!')
+                        callback(webdav.Errors.ResourceNotFound);
+                        return;
+                    }
+
+                    currentPath = currentPath.getChildPath(path.paths[currentPath.paths.length])
+                } else {
+                    if (currentPath.hasParent()) {
+                        currentPath = currentPath.getParent()
+                    } else {
+                        console.log('Type could not be identified!')
+                        callback(webdav.Errors.ResourceNotFound)
+                        return;
+                    }
+                }
+            }
+
+            callback(null, this.resources.get(path.toString()).type);
         }
     }
 }
