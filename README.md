@@ -14,6 +14,12 @@
 - [x] List subdirectories and files in a course
 - [ ] Open files in a course
 
+## TODO for In App MVP
+
+- [ ] Hide Feature behing Feature Flipper
+- [ ] Move code to server (?)
+- [ ] Documentation 
+
 ## More TODOs
 - [ ] NextCloud / OwnCloud custom attributes
 - [ ] Handle Permissions
