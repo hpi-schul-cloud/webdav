@@ -35,8 +35,7 @@ class WebFileSystemSerializer implements webdav.FileSystemSerializer {
 class WebFileSystem extends webdav.FileSystem {
     props: webdav.IPropertyManager;
     locks: webdav.ILockManager;
-    currentDirData: Array<any>;
-    currentDir: Path;
+    resources: Map<String, any>
 
     // TODO: add parameter to switch between 'courses', 'my files', and 'teams'
 
@@ -45,17 +44,11 @@ class WebFileSystem extends webdav.FileSystem {
 
         this.props = new webdav.LocalPropertyManager();
         this.locks = new webdav.LocalLockManager();
+        this.resources = new Map();
     }
 
     async loadDirectoryData (path: Path) : Promise<void> {
-        const res = await fetch(process.env.BASE_URL + '/fileStorage?owner=' + path.rootName() + (path.hasParent() ? '&parent=' + path.fileName() : ''), {
-            headers: {
-                'Authorization': 'Bearer ' + process.env.JWT
-            }
-        })
 
-        this.currentDirData = await res.json()
-        this.currentDir = path
     }
 
     _fastExistCheck (ctx : RequestContext, path : Path, callback : (exists : boolean) => void) : void {
@@ -85,19 +78,39 @@ class WebFileSystem extends webdav.FileSystem {
             })
                 .then(res => res.json())
                 .then(data => {
-                    this.currentDirData = data['data']
-                    this.currentDir = path
-                    const files = data['data'].map((course) => course.id)
-                    callback(null, files)
+                    for (const course of data['data']) {
+                        this.resources.set(path.getChildPath(course.name).toString(), {
+                            type: webdav.ResourceType.Directory,
+                            id: course.id
+                        });
+                    }
+                    const courses = data['data'].map((course) => course.name)
+                    callback(null, courses)
                 })
         } else {
+            if (this.resources.has(path.toString())) {
+                console.log(this.resources)
+                const rootID = this.resources.get('/' + path.rootName()).id;
+                const parentID = this.resources.get(path.toString()).id;
 
-            // TODO: Display filename instead of id (probably best by using metadata)
+                const res = await fetch(process.env.BASE_URL + '/fileStorage?owner=' + rootID + (parentID != rootID ? '&parent=' + parentID : ''), {
+                    headers: {
+                        'Authorization': 'Bearer ' + process.env.JWT
+                    }
+                })
 
-            await this.loadDirectoryData(path)
-
-            const files = this.currentDirData.map((file) => file._id)
-            callback(null, files)
+                const data = await res.json()
+                for (const resource of data) {
+                    this.resources.set(path.getChildPath(resource.name).toString(), {
+                        type: resource.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
+                        id: resource._id
+                    });
+                }
+                const resources = data.map((resource) => resource.name)
+                callback(null, resources)
+            } else {
+                callback(webdav.Errors.ResourceNotFound)
+            }
         }
     }
 
@@ -112,24 +125,17 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     async _type(path: Path, info: TypeInfo, callback: ReturnCallback<ReturnType<any>>): Promise<void> {
-        console.log("Checking type: " + path)
+        console.log("Checking type: " + path);
 
         // TODO: Handle route which is not loaded yet
 
-        if (path.isRoot() || !path.hasParent()) {
-            callback(null, webdav.ResourceType.Directory)
+        if (!path.hasParent()) {
+            callback(null, webdav.ResourceType.Directory);
+        } else if (this.resources.has(path.toString())) {
+            callback(null, this.resources.get(path.toString()).type);
         } else {
-            if (path.getParent().toString() != this.currentDir.toString()) {
-                await this.loadDirectoryData(path.getParent())
-            }
-
-            const file = this.currentDirData.find((file) => file._id === path.fileName())
-            if (file && file.hasOwnProperty('isDirectory')) {
-                callback(null, file.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File)
-            } else {
-                console.log('File not in directory: ' + path)
-                callback(webdav.Errors.ResourceNotFound)
-            }
+            console.log('Resource not found');
+            callback(webdav.Errors.ResourceNotFound);
         }
     }
 }
