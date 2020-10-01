@@ -117,6 +117,7 @@ class WebFileSystem extends webdav.FileSystem {
 
     async _readDir(path: Path, info: ReadDirInfo, callback: ReturnCallback<string[] | Path[]>): Promise<void> {
         console.log("Reading dir: " + path)
+        console.log(info.context.user)
 
         if (path.isRoot()) {
             callback(null, await this.loadCourses())

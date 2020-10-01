@@ -11,13 +11,8 @@ require('dotenv').config()
 const userManager = new webdav.SimpleUserManager();
 const user = userManager.addUser('username', 'password', false);
 
-// Privilege manager (tells which users can access which files/folders)
-const privilegeManager = new webdav.SimplePathPrivilegeManager();
-privilegeManager.setRights(user, '/', [ 'all' ]);
-
 const server = new webdav.WebDAVServer({
-    httpAuthentication: new webdav.HTTPDigestAuthentication(userManager, 'Default realm'),
-    privilegeManager: privilegeManager
+    httpAuthentication: new webdav.HTTPDigestAuthentication(userManager)
 });
 
 server.setFileSystem('courses', new WebFileSystem(), (succeeded) => {

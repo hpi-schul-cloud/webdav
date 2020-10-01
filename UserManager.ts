@@ -7,11 +7,11 @@ export default class UserManager implements ITestableUserManager, IListUserManag
     // TODO: Implement User Manager
 
     getDefaultUser(callback: (user: IUser) => void): any {
-
+        // relevant for HTTPDigestAuthentication
     }
 
     getUserByName(name: string, callback: (error: Error, user?: IUser) => void): any {
-
+        // relevant for HTTPDigestAuthentication
     }
 
     getUserByNamePassword(name: string, password: string, callback: (error: Error, user?: IUser) => void): any {
