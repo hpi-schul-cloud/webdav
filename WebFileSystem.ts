@@ -93,12 +93,26 @@ class WebFileSystem extends webdav.FileSystem {
         callback(true);
     }
 
-    _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : void {
+    async _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : Promise<void> {
         console.log("Reading file: " + path)
 
-        // TODO: Actually read file (using fileStorage service - https://github.com/hpi-schul-cloud/schulcloud-server/tree/develop/src/services/fileStorage)
+        /*
+        const res = await fetch(process.env.BASE_URL + '/fileStorage/signedUrl?file=' + path.fileName(), {
+            headers: {
+                'Authorization': 'Bearer ' + process.env.JWT
+            }
+        })
 
-        callback(null, null)
+        const data = await res.json()
+
+        console.log("Signed URL: ", data.url)
+         */
+
+        const file = await fetch('https://file-examples-com.github.io/uploads/2017/10/file-sample_150kB.pdf')
+        const buffer = await file.buffer()
+        console.log(buffer)
+
+        callback(null, new webdav.VirtualFileReadable([ buffer ]))
     }
 
     async _readDir(path: Path, info: ReadDirInfo, callback: ReturnCallback<string[] | Path[]>): Promise<void> {
@@ -130,6 +144,12 @@ class WebFileSystem extends webdav.FileSystem {
 
     async _type(path: Path, info: TypeInfo, callback: ReturnCallback<ReturnType<any>>): Promise<void> {
         console.log("Checking type: " + path);
+
+        // Just for test purposes
+        if (path.fileName() == 'Polynomdivision.pdf') {
+            callback(null, webdav.ResourceType.File)
+            return;
+        }
 
         if (!path.hasParent()) {
             callback(null, webdav.ResourceType.Directory);
