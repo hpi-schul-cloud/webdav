@@ -13,6 +13,7 @@ import {ReturnCallback} from "webdav-server/lib/manager/v2/fileSystem/CommonType
 import {Readable} from "stream";
 import {ILockManager} from "webdav-server/lib/manager/v2/fileSystem/LockManager";
 import {IPropertyManager} from "webdav-server/lib/manager/v2/fileSystem/PropertyManager";
+import User from "./User";
 
 class WebFileSystemSerializer implements webdav.FileSystemSerializer {
     uid(): string {
@@ -47,13 +48,13 @@ class WebFileSystem extends webdav.FileSystem {
         this.resources = new Map();
     }
 
-    async loadDirectory (path: Path) : Promise<string[]> {
+    async loadDirectory (path: Path, user: User) : Promise<string[]> {
         const rootID = this.resources.get('/' + path.rootName()).id;
         const parentID = this.resources.get(path.toString()).id;
 
         const res = await fetch(process.env.BASE_URL + '/fileStorage?owner=' + rootID + (parentID != rootID ? '&parent=' + parentID : ''), {
             headers: {
-                'Authorization': 'Bearer ' + process.env.JWT
+                'Authorization': 'Bearer ' + user.jwt
             }
         })
 
@@ -67,10 +68,10 @@ class WebFileSystem extends webdav.FileSystem {
         return data.map((resource) => resource.name)
     }
 
-    async loadCourses() : Promise<string[]> {
+    async loadCourses(user: User) : Promise<string[]> {
         const res = await fetch(process.env.BASE_URL + '/courses', {
             headers: {
-                'Authorization': 'Bearer ' + process.env.JWT
+                'Authorization': 'Bearer ' + user.jwt
             }
         })
         const data = await res.json()
@@ -85,12 +86,12 @@ class WebFileSystem extends webdav.FileSystem {
         return data['data'].map((course) => course.name)
     }
 
-    async loadPath(path: Path) : Promise<Boolean> {
-        await this.loadCourses()
+    async loadPath(path: Path, user: User) : Promise<Boolean> {
+        await this.loadCourses(user)
         let currentPath = path.getParent()
         while (!this.resources.has(path.toString())) {
             if (this.resources.has(currentPath.toString())) {
-                const resources = await this.loadDirectory(currentPath);
+                const resources = await this.loadDirectory(currentPath, user);
 
                 if (!resources.includes(path.paths[currentPath.paths.length])) {
                     return false;
@@ -121,7 +122,7 @@ class WebFileSystem extends webdav.FileSystem {
 
         const res = await fetch(process.env.BASE_URL + '/fileStorage/signedUrl?file=' + this.resources.get(path.toString()).id, {
             headers: {
-                'Authorization': 'Bearer ' + process.env.JWT
+                'Authorization': 'Bearer ' + (<User>info.context.user).jwt
             }
         })
 
@@ -139,15 +140,15 @@ class WebFileSystem extends webdav.FileSystem {
         console.log("Reading dir: " + path)
 
         if (path.isRoot()) {
-            callback(null, await this.loadCourses())
+            callback(null, await this.loadCourses(<User>info.context.user))
         } else {
             if (this.resources.has(path.toString())) {
-                const resources = await this.loadDirectory(path)
+                const resources = await this.loadDirectory(path, <User>info.context.user)
 
                 callback(null, resources)
             } else {
-                if (await this.loadPath(path)) {
-                    const resources = await this.loadDirectory(path)
+                if (await this.loadPath(path, <User>info.context.user)) {
+                    const resources = await this.loadDirectory(path, <User>info.context.user)
 
                     callback(null, resources)
                 } else {
@@ -176,7 +177,7 @@ class WebFileSystem extends webdav.FileSystem {
         } else if (this.resources.has(path.toString())) {
             callback(null, this.resources.get(path.toString()).type);
         } else {
-            if (await this.loadPath(path)) {
+            if (await this.loadPath(path, <User>info.context.user)) {
                 callback(null, this.resources.get(path.toString()).type);
             } else {
                 console.log('Type could not be identified')

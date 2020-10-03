@@ -7,13 +7,10 @@ require('dotenv').config()
 
 // TODO: User Management (same credentials as in web client)
 
-// User manager (tells who are the users)
-const userManager = new webdav.SimpleUserManager();
-const user = userManager.addUser('username', 'password', false);
+const userManager = new UserManager()
 
 const server = new webdav.WebDAVServer({
-    // TODO: BASIC vs DIGEST Authentication?
-    httpAuthentication: new webdav.HTTPDigestAuthentication(userManager)
+    httpAuthentication: new webdav.HTTPBasicAuthentication(userManager)
 });
 
 server.setFileSystem('courses', new WebFileSystem(), (succeeded) => {
