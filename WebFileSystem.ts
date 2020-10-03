@@ -85,6 +85,29 @@ class WebFileSystem extends webdav.FileSystem {
         return data['data'].map((course) => course.name)
     }
 
+    async loadPath(path: Path) : Promise<Boolean> {
+        await this.loadCourses()
+        let currentPath = path.getParent()
+        while (!this.resources.has(path.toString())) {
+            if (this.resources.has(currentPath.toString())) {
+                const resources = await this.loadDirectory(currentPath);
+
+                if (!resources.includes(path.paths[currentPath.paths.length])) {
+                    return false;
+                }
+
+                currentPath = currentPath.getChildPath(path.paths[currentPath.paths.length])
+            } else {
+                if (currentPath.hasParent()) {
+                    currentPath = currentPath.getParent()
+                } else {
+                    return false;
+                }
+            }
+        }
+        return true
+    }
+
     _fastExistCheck (ctx : RequestContext, path : Path, callback : (exists : boolean) => void) : void {
         console.log("Checking existence: " + path)
 
@@ -96,8 +119,7 @@ class WebFileSystem extends webdav.FileSystem {
     async _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : Promise<void> {
         console.log("Reading file: " + path)
 
-        /*
-        const res = await fetch(process.env.BASE_URL + '/fileStorage/signedUrl?file=' + path.fileName(), {
+        const res = await fetch(process.env.BASE_URL + '/fileStorage/signedUrl?file=' + this.resources.get(path.toString()).id, {
             headers: {
                 'Authorization': 'Bearer ' + process.env.JWT
             }
@@ -106,18 +128,15 @@ class WebFileSystem extends webdav.FileSystem {
         const data = await res.json()
 
         console.log("Signed URL: ", data.url)
-         */
 
-        const file = await fetch('https://file-examples-com.github.io/uploads/2017/10/file-sample_150kB.pdf')
+        const file = await fetch(data.url)
         const buffer = await file.buffer()
-        console.log(buffer)
 
         callback(null, new webdav.VirtualFileReadable([ buffer ]))
     }
 
     async _readDir(path: Path, info: ReadDirInfo, callback: ReturnCallback<string[] | Path[]>): Promise<void> {
         console.log("Reading dir: " + path)
-        console.log(info.context.user)
 
         if (path.isRoot()) {
             callback(null, await this.loadCourses())
@@ -127,8 +146,14 @@ class WebFileSystem extends webdav.FileSystem {
 
                 callback(null, resources)
             } else {
-                console.log('Directory could not be read!')
-                callback(webdav.Errors.ResourceNotFound)
+                if (await this.loadPath(path)) {
+                    const resources = await this.loadDirectory(path)
+
+                    callback(null, resources)
+                } else {
+                    console.log('Directory could not be found')
+                    callback(webdav.Errors.ResourceNotFound)
+                }
             }
         }
     }
@@ -146,42 +171,17 @@ class WebFileSystem extends webdav.FileSystem {
     async _type(path: Path, info: TypeInfo, callback: ReturnCallback<ReturnType<any>>): Promise<void> {
         console.log("Checking type: " + path);
 
-        // Just for test purposes
-        if (path.fileName() == 'Polynomdivision.pdf') {
-            callback(null, webdav.ResourceType.File)
-            return;
-        }
-
         if (!path.hasParent()) {
             callback(null, webdav.ResourceType.Directory);
         } else if (this.resources.has(path.toString())) {
             callback(null, this.resources.get(path.toString()).type);
         } else {
-            await this.loadCourses()
-            let currentPath = path.getParent()
-            while (!this.resources.has(path.toString())) {
-                if (this.resources.has(currentPath.toString())) {
-                    const resources = await this.loadDirectory(currentPath);
-
-                    if (!resources.includes(path.paths[currentPath.paths.length])) {
-                        console.log('Type could not be identified!')
-                        callback(webdav.Errors.ResourceNotFound);
-                        return;
-                    }
-
-                    currentPath = currentPath.getChildPath(path.paths[currentPath.paths.length])
-                } else {
-                    if (currentPath.hasParent()) {
-                        currentPath = currentPath.getParent()
-                    } else {
-                        console.log('Type could not be identified!')
-                        callback(webdav.Errors.ResourceNotFound)
-                        return;
-                    }
-                }
+            if (await this.loadPath(path)) {
+                callback(null, this.resources.get(path.toString()).type);
+            } else {
+                console.log('Type could not be identified')
+                callback(webdav.Errors.ResourceNotFound)
             }
-
-            callback(null, this.resources.get(path.toString()).type);
         }
     }
 }

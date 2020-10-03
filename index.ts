@@ -12,6 +12,7 @@ const userManager = new webdav.SimpleUserManager();
 const user = userManager.addUser('username', 'password', false);
 
 const server = new webdav.WebDAVServer({
+    // TODO: BASIC vs DIGEST Authentication?
     httpAuthentication: new webdav.HTTPDigestAuthentication(userManager)
 });
 

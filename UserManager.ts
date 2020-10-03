@@ -15,7 +15,7 @@ export default class UserManager implements ITestableUserManager, IListUserManag
     }
 
     getUserByNamePassword(name: string, password: string, callback: (error: Error, user?: IUser) => void): any {
-
+        // relevant for HTTPBasicAuthentication
     }
 
     getUsers(callback: (error: Error, users?: IUser[]) => void): any {
