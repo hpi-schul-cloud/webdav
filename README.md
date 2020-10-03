@@ -19,6 +19,8 @@
 - [ ] Hide Feature behing Feature Flipper
 - [ ] Move code to server (?)
 - [ ] Documentation 
+- [ ] Tests 
+
 
 ## More TODOs
 - [ ] NextCloud / OwnCloud custom attributes
