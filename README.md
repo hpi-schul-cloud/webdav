@@ -12,7 +12,7 @@
 - [x] List users directories in a course
 - [x] List users files in a course
 - [x] List subdirectories and files in a course
-- [ ] Open files in a course
+- [x] Open files in a course
 
 ## TODO for In App MVP
 
