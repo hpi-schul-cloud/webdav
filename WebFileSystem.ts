@@ -48,6 +48,14 @@ class WebFileSystem extends webdav.FileSystem {
         this.resources = new Map();
     }
 
+    /*
+     * Loads the resources of the given directory
+     *
+     * @param {Path} path   Path of the directory
+     * @param {User} user   Current user
+     *
+     * @return {Promise<string[]>}  List of resources in directory
+     */
     async loadDirectory (path: Path, user: User) : Promise<string[]> {
         const rootID = this.resources.get('/' + path.rootName()).id;
         const parentID = this.resources.get(path.toString()).id;
@@ -68,6 +76,13 @@ class WebFileSystem extends webdav.FileSystem {
         return data.map((resource) => resource.name)
     }
 
+    /*
+     * Loads the courses of the user
+     *
+     * @param {User} user   Current user
+     *
+     * @return {Promise<string[]>}  List of courses
+     */
     async loadCourses(user: User) : Promise<string[]> {
         const res = await fetch(process.env.BASE_URL + '/courses', {
             headers: {
@@ -86,6 +101,14 @@ class WebFileSystem extends webdav.FileSystem {
         return data['data'].map((course) => course.name)
     }
 
+    /*
+     * Loads every parent path until the given path
+     *
+     * @param {Path} path   Path to load
+     * @param {User} user   Current user
+     *
+     * @return {Promise<Boolean>}   Returns whether the path exists
+     */
     async loadPath(path: Path, user: User) : Promise<Boolean> {
         await this.loadCourses(user)
         let currentPath = path.getParent()

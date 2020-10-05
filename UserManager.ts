@@ -6,12 +6,16 @@ import {v2 as webdav} from "webdav-server";
 
 export default class UserManager implements ITestableUserManager, IListUserManager {
 
-    // TODO: Implement User Manager
+    users: Map<string, User>
+
+    constructor() {
+        this.users = new Map()
+    }
 
     getDefaultUser(callback: (user: IUser) => void): any {
         console.log('Retrieving default user...')
 
-        callback(new User(process.env.JWT))
+        callback(new User(null, process.env.JWT))
     }
 
     getUserByName(name: string, callback: (error: Error, user?: IUser) => void): any {
@@ -24,19 +28,31 @@ export default class UserManager implements ITestableUserManager, IListUserManag
 
         console.log('Retrieving user by name and password...')
         // relevant for HTTPBasicAuthentication
+
+        if (this.users.has(name)) {
+            callback(null, this.users.get(name))
+            return
+        }
+
         const res = await fetch(process.env.BASE_URL + '/authentication', {
             method: 'POST',
             body: JSON.stringify({
-                    username: name,
-                    password
-                })
+                username: name,
+                password
+            })
         })
 
         const data = await res.json()
 
         console.log(data)
 
-        callback(webdav.Errors.BadAuthentication)
+        if (data.accessKey) {
+            const user = new User(name, data.accessKey)
+            this.users.set(name, user)
+            callback(null, user)
+        } else {
+            callback(webdav.Errors.BadAuthentication)
+        }
     }
 
     getUsers(callback: (error: Error, users?: IUser[]) => void): any {
