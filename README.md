@@ -30,6 +30,7 @@
 - [ ] NextCloud / OwnCloud server info
 - [ ] Handle Permissions
 - [x] Handle available metadata
+- [x] Have updatetAT available on directories
 - [ ] Create Files
 - [ ] Create Dirs
 - [ ] Move Files 
