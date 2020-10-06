@@ -8,7 +8,7 @@
 1. Connect to `http://localhost:1900`
 
 ## TODO for MVP
-- [ ] Handle user auth
+- [x] Handle user auth
 - [x] List users courses
 - [x] List users directories in a course
 - [x] List users files in a course
