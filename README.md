@@ -25,6 +25,7 @@
 
 ## More TODOs
 - [ ] NextCloud / OwnCloud custom attributes
+- [ ] NextCloud / OwnCloud server info
 - [ ] Handle Permissions
 - [x] Handle available metadata
 - [ ] Create Files
