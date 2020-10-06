@@ -2,7 +2,7 @@
 
 ## Installation
 1. Clone Repository
-1. Set `BASE_URL` and `JWT` in `.env` file
+1. Set `BASE_URL` in `.env` file
 1. Run `npm install`
 1. Run `npm run start`
 1. Connect to `http://localhost:1900`
