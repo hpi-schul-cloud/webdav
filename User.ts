@@ -5,8 +5,8 @@ export default class User implements IUser {
     username: string;
     jwt: string;
 
-    constructor(username: string, jwt: string) {
-        this.uid = username
+    constructor(uid: string, username: string, jwt: string) {
+        this.uid = uid
         this.username = username
         this.jwt = jwt
     }

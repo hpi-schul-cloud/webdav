@@ -15,7 +15,6 @@ import {Readable} from "stream";
 import {ILockManager} from "webdav-server/lib/manager/v2/fileSystem/LockManager";
 import {IPropertyManager} from "webdav-server/lib/manager/v2/fileSystem/PropertyManager";
 import User from "./User";
-import {callbackify} from "util";
 
 class WebFileSystemSerializer implements webdav.FileSystemSerializer {
     uid(): string {

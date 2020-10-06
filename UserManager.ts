@@ -53,7 +53,7 @@ export default class UserManager implements ITestableUserManager, IListUserManag
         console.log(data)
 
         if (data.accessToken) {
-            const user = new User(name, data.accessToken)
+            const user = new User(data.account.userId, name, data.accessToken)
             this.users.set(name, user)
             callback(null, user)
         } else {
@@ -63,5 +63,7 @@ export default class UserManager implements ITestableUserManager, IListUserManag
 
     getUsers(callback: (error: Error, users?: IUser[]) => void): any {
         console.log('Retrieving users...')
+
+        callback(null, [...this.users.values()])
     }
 }
