@@ -1,5 +1,7 @@
 # webdav_experiment
 
+![Demo](demo.gif)
+
 ## Installation
 1. Clone Repository
 1. Set `BASE_URL` in `.env` file

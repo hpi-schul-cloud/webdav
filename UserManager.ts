@@ -31,8 +31,13 @@ export default class UserManager implements ITestableUserManager, IListUserManag
         // relevant for HTTPBasicAuthentication
 
         if (this.users.has(name)) {
-            callback(null, this.users.get(name))
-            return
+            if (this.users.get(name).password === password) {
+                callback(null, this.users.get(name))
+                return
+            } else {
+                callback(webdav.Errors.BadAuthentication)
+                return
+            }
         }
 
         const res = await fetch(process.env.BASE_URL + '/authentication', {
@@ -53,7 +58,7 @@ export default class UserManager implements ITestableUserManager, IListUserManag
         console.log(data)
 
         if (data.accessToken) {
-            const user = new User(data.account.userId, name, data.accessToken)
+            const user = new User(data.account.userId, name, password, data.accessToken)
             this.users.set(name, user)
             callback(null, user)
         } else {
