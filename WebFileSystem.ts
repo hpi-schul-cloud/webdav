@@ -37,7 +37,7 @@ class WebFileSystemSerializer implements webdav.FileSystemSerializer {
 class WebFileSystem extends webdav.FileSystem {
     props: webdav.IPropertyManager;
     locks: webdav.ILockManager;
-    resources: Map<String, any>
+    resources: Map<string, Map<string, any>>
 
     // TODO: add parameter to switch between 'courses', 'my files', and 'teams'
 
@@ -58,8 +58,8 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<string[]>}  List of resources in directory
      */
     async loadDirectory (path: Path, user: User) : Promise<string[]> {
-        const rootID = this.resources.get('/' + path.rootName()).id;
-        const parentID = this.resources.get(path.toString()).id;
+        const rootID = this.resources.get(user.uid).get('/' + path.rootName()).id;
+        const parentID = this.resources.get(user.uid).get(path.toString()).id;
 
         const res = await fetch(process.env.BASE_URL + '/fileStorage?owner=' + rootID + (parentID != rootID ? '&parent=' + parentID : ''), {
             headers: {
@@ -75,7 +75,7 @@ class WebFileSystem extends webdav.FileSystem {
             console.log(resource.name)
             console.log(resource.permissions)
 
-            this.resources.set(path.getChildPath(resource.name).toString(), {
+            this.resources.get(user.uid).set(path.getChildPath(resource.name).toString(), {
                 type: resource.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
                 id: resource._id,
                 size: resource.size,
@@ -102,7 +102,7 @@ class WebFileSystem extends webdav.FileSystem {
         const data = await res.json()
 
         for (const course of data['data']) {
-            this.resources.set(new Path([course.name]).toString(), {
+            this.resources.get(user.uid).set(new Path([course.name]).toString(), {
                 type: webdav.ResourceType.Directory,
                 id: course.id
             });
@@ -122,8 +122,8 @@ class WebFileSystem extends webdav.FileSystem {
     async loadPath(path: Path, user: User) : Promise<Boolean> {
         await this.loadCourses(user)
         let currentPath = path.getParent()
-        while (!this.resources.has(path.toString())) {
-            if (this.resources.has(currentPath.toString())) {
+        while (!this.resources.get(user.uid).has(path.toString())) {
+            if (this.resources.get(user.uid).has(currentPath.toString())) {
                 const resources = await this.loadDirectory(currentPath, user);
 
                 if (!resources.includes(path.paths[currentPath.paths.length])) {
@@ -152,20 +152,26 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<number>}   Metadata value
      */
     async getMetadata(path: Path, key: string, user: User) : Promise<number> {
-        if (this.resources.has(path.toString())) {
-            const value = this.resources.get(path.toString())[key]
+        if (this.resources.get(user.uid).has(path.toString())) {
+            const value = this.resources.get(user.uid).get(path.toString())[key]
             if (value) {
                 return value
             }
         } else {
             if (await this.loadPath(path, user)) {
-                const value = this.resources.get(path.toString())[key]
+                const value = this.resources.get(user.uid).get(path.toString())[key]
                 if (value) {
                     return value
                 }
             } else {
                 return -1
             }
+        }
+    }
+
+    createUserFileSystem(uid: string) {
+        if (!this.resources.has(uid)) {
+            this.resources.set(uid, new Map())
         }
     }
 
@@ -181,7 +187,8 @@ class WebFileSystem extends webdav.FileSystem {
         console.log("Reading file: " + path)
 
         if (info.context.user) {
-            const res = await fetch(process.env.BASE_URL + '/fileStorage/signedUrl?file=' + this.resources.get(path.toString()).id, {
+            this.createUserFileSystem(info.context.user.uid)
+            const res = await fetch(process.env.BASE_URL + '/fileStorage/signedUrl?file=' + this.resources.get(info.context.user.uid).get(path.toString()).id, {
                 headers: {
                     'Authorization': 'Bearer ' + (<User>info.context.user).jwt
                 }
@@ -211,10 +218,11 @@ class WebFileSystem extends webdav.FileSystem {
         console.log("Reading dir: " + path)
 
         if (info.context.user) {
+            this.createUserFileSystem(info.context.user.uid)
             if (path.isRoot()) {
                 callback(null, await this.loadCourses(<User>info.context.user))
             } else {
-                if (this.resources.has(path.toString())) {
+                if (this.resources.get(info.context.user.uid).has(path.toString())) {
                     const resources = await this.loadDirectory(path, <User>info.context.user)
 
                     callback(null, resources)
@@ -248,13 +256,14 @@ class WebFileSystem extends webdav.FileSystem {
         console.log("Checking type: " + path);
 
         if (info.context.user) {
+            this.createUserFileSystem(info.context.user.uid)
             if (!path.hasParent()) {
                 callback(null, webdav.ResourceType.Directory);
-            } else if (this.resources.has(path.toString())) {
-                callback(null, this.resources.get(path.toString()).type);
+            } else if (this.resources.get(info.context.user.uid).has(path.toString())) {
+                callback(null, this.resources.get(info.context.user.uid).get(path.toString()).type);
             } else {
                 if (await this.loadPath(path, <User>info.context.user)) {
-                    callback(null, this.resources.get(path.toString()).type);
+                    callback(null, this.resources.get(info.context.user.uid).get(path.toString()).type);
                 } else {
                     console.log('Type could not be identified')
                     callback(webdav.Errors.ResourceNotFound)
@@ -269,6 +278,7 @@ class WebFileSystem extends webdav.FileSystem {
         console.log("Checking size: " + path);
 
         if (ctx.context.user) {
+            this.createUserFileSystem(ctx.context.user.uid)
             const size = await this.getMetadata(path, 'size', <User>ctx.context.user)
             if (size >= 0) {
                 callback(null, size)
@@ -284,6 +294,7 @@ class WebFileSystem extends webdav.FileSystem {
         console.log("Checking creation date: " + path);
 
         if (ctx.context.user) {
+            this.createUserFileSystem(ctx.context.user.uid)
             const creationDate = await this.getMetadata(path, 'creationDate', <User>ctx.context.user)
             if (creationDate >= 0) {
                 callback(null, creationDate)
@@ -299,6 +310,7 @@ class WebFileSystem extends webdav.FileSystem {
         console.log("Checking last modified date: " + path);
 
         if (ctx.context.user) {
+            this.createUserFileSystem(ctx.context.user.uid)
             const lastModifiedDate = await this.getMetadata(path, 'lastModifiedDate', <User>ctx.context.user)
             if (lastModifiedDate >= 0) {
                 callback(null, lastModifiedDate)
