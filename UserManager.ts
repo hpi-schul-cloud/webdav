@@ -3,6 +3,7 @@ import {IListUserManager} from "webdav-server/lib/user/v2/userManager/IListUserM
 import {IUser} from "webdav-server/lib/user/v2/IUser";
 import User from "./User";
 import {v2 as webdav} from "webdav-server";
+import * as fetch from 'node-fetch'
 
 export default class UserManager implements ITestableUserManager, IListUserManager {
 
@@ -15,7 +16,7 @@ export default class UserManager implements ITestableUserManager, IListUserManag
     getDefaultUser(callback: (user: IUser) => void): any {
         console.log('Retrieving default user...')
 
-        callback(new User(null, process.env.JWT))
+        callback(null)
     }
 
     getUserByName(name: string, callback: (error: Error, user?: IUser) => void): any {
@@ -36,9 +37,14 @@ export default class UserManager implements ITestableUserManager, IListUserManag
 
         const res = await fetch(process.env.BASE_URL + '/authentication', {
             method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
+                strategy: 'local',
                 username: name,
-                password
+                password,
+                privateDevice: true
             })
         })
 
@@ -46,8 +52,8 @@ export default class UserManager implements ITestableUserManager, IListUserManag
 
         console.log(data)
 
-        if (data.accessKey) {
-            const user = new User(name, data.accessKey)
+        if (data.accessToken) {
+            const user = new User(name, data.accessToken)
             this.users.set(name, user)
             callback(null, user)
         } else {

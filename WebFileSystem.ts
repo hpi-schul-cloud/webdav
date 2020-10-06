@@ -15,7 +15,7 @@ import {Readable} from "stream";
 import {ILockManager} from "webdav-server/lib/manager/v2/fileSystem/LockManager";
 import {IPropertyManager} from "webdav-server/lib/manager/v2/fileSystem/PropertyManager";
 import User from "./User";
-import {size} from "webdav-server/lib/resource/v1/std/resourceTester/Content";
+import {callbackify} from "util";
 
 class WebFileSystemSerializer implements webdav.FileSystemSerializer {
     uid(): string {
@@ -69,10 +69,12 @@ class WebFileSystem extends webdav.FileSystem {
         })
 
         const data = await res.json()
-        console.log(data)
         for (const resource of data) {
             const creationDate = new Date(resource.createdAt)
             const lastModifiedDate = new Date(resource.updatedAt)
+
+            console.log(resource.name)
+            console.log(resource.permissions)
 
             this.resources.set(path.getChildPath(resource.name).toString(), {
                 type: resource.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
@@ -141,6 +143,15 @@ class WebFileSystem extends webdav.FileSystem {
         return true
     }
 
+    /*
+     * Returns given metadata of a resource
+     *
+     * @param {Path} path   Path of the resource
+     * @param {string} key  Property name
+     * @param {User} user   Current user
+     *
+     * @return {Promise<number>}   Metadata value
+     */
     async getMetadata(path: Path, key: string, user: User) : Promise<number> {
         if (this.resources.has(path.toString())) {
             const value = this.resources.get(path.toString())[key]
@@ -170,47 +181,57 @@ class WebFileSystem extends webdav.FileSystem {
     async _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : Promise<void> {
         console.log("Reading file: " + path)
 
-        const res = await fetch(process.env.BASE_URL + '/fileStorage/signedUrl?file=' + this.resources.get(path.toString()).id, {
-            headers: {
-                'Authorization': 'Bearer ' + (<User>info.context.user).jwt
+        if (info.context.user) {
+            const res = await fetch(process.env.BASE_URL + '/fileStorage/signedUrl?file=' + this.resources.get(path.toString()).id, {
+                headers: {
+                    'Authorization': 'Bearer ' + (<User>info.context.user).jwt
+                }
+            })
+
+            const data = await res.json()
+
+            console.log("Signed URL: ", data.url)
+
+            // TODO: URL should be cached
+
+            if (data.url) {
+                const file = await fetch(data.url)
+                const buffer = await file.buffer()
+
+                callback(null, new webdav.VirtualFileReadable([ buffer ]))
+            } else {
+                console.log(data)
+                callback(webdav.Errors.Forbidden)
             }
-        })
-
-        const data = await res.json()
-
-        console.log("Signed URL: ", data.url)
-
-        if (data.url) {
-            const file = await fetch(data.url)
-            const buffer = await file.buffer()
-
-            callback(null, new webdav.VirtualFileReadable([ buffer ]))
         } else {
-            console.log(data)
-            callback(webdav.Errors.Forbidden)
+            callback(webdav.Errors.BadAuthentication)
         }
     }
 
     async _readDir(path: Path, info: ReadDirInfo, callback: ReturnCallback<string[] | Path[]>): Promise<void> {
         console.log("Reading dir: " + path)
 
-        if (path.isRoot()) {
-            callback(null, await this.loadCourses(<User>info.context.user))
-        } else {
-            if (this.resources.has(path.toString())) {
-                const resources = await this.loadDirectory(path, <User>info.context.user)
-
-                callback(null, resources)
+        if (info.context.user) {
+            if (path.isRoot()) {
+                callback(null, await this.loadCourses(<User>info.context.user))
             } else {
-                if (await this.loadPath(path, <User>info.context.user)) {
+                if (this.resources.has(path.toString())) {
                     const resources = await this.loadDirectory(path, <User>info.context.user)
 
                     callback(null, resources)
                 } else {
-                    console.log('Directory could not be found')
-                    callback(webdav.Errors.ResourceNotFound)
+                    if (await this.loadPath(path, <User>info.context.user)) {
+                        const resources = await this.loadDirectory(path, <User>info.context.user)
+
+                        callback(null, resources)
+                    } else {
+                        console.log('Directory could not be found')
+                        callback(webdav.Errors.ResourceNotFound)
+                    }
                 }
             }
+        } else {
+            callback(webdav.Errors.BadAuthentication)
         }
     }
 
@@ -227,50 +248,66 @@ class WebFileSystem extends webdav.FileSystem {
     async _type(path: Path, info: TypeInfo, callback: ReturnCallback<ReturnType<any>>): Promise<void> {
         console.log("Checking type: " + path);
 
-        if (!path.hasParent()) {
-            callback(null, webdav.ResourceType.Directory);
-        } else if (this.resources.has(path.toString())) {
-            callback(null, this.resources.get(path.toString()).type);
-        } else {
-            if (await this.loadPath(path, <User>info.context.user)) {
+        if (info.context.user) {
+            if (!path.hasParent()) {
+                callback(null, webdav.ResourceType.Directory);
+            } else if (this.resources.has(path.toString())) {
                 callback(null, this.resources.get(path.toString()).type);
             } else {
-                console.log('Type could not be identified')
-                callback(webdav.Errors.ResourceNotFound)
+                if (await this.loadPath(path, <User>info.context.user)) {
+                    callback(null, this.resources.get(path.toString()).type);
+                } else {
+                    console.log('Type could not be identified')
+                    callback(webdav.Errors.ResourceNotFound)
+                }
             }
+        } else {
+            callback(webdav.Errors.BadAuthentication)
         }
     }
 
     async _size(path: Path, ctx: SizeInfo, callback: ReturnCallback<number>) {
         console.log("Checking size: " + path);
 
-        const size = await this.getMetadata(path, 'size', <User>ctx.context.user)
-        if (size >= 0) {
-            callback(null, size)
+        if (ctx.context.user) {
+            const size = await this.getMetadata(path, 'size', <User>ctx.context.user)
+            if (size >= 0) {
+                callback(null, size)
+            } else {
+                callback(webdav.Errors.None)
+            }
         } else {
-            callback(webdav.Errors.None)
+            callback(webdav.Errors.BadAuthentication)
         }
     }
 
     async _creationDate(path: Path, ctx: CreationDateInfo, callback: ReturnCallback<number>) {
         console.log("Checking creation date: " + path);
 
-        const creationDate = await this.getMetadata(path, 'creationDate', <User>ctx.context.user)
-        if (creationDate >= 0) {
-            callback(null, creationDate)
+        if (ctx.context.user) {
+            const creationDate = await this.getMetadata(path, 'creationDate', <User>ctx.context.user)
+            if (creationDate >= 0) {
+                callback(null, creationDate)
+            } else {
+                callback(webdav.Errors.None)
+            }
         } else {
-            callback(webdav.Errors.None)
+            callback(webdav.Errors.BadAuthentication)
         }
     }
 
     async _lastModifiedDate(path: Path, ctx: LastModifiedDateInfo, callback: ReturnCallback<number>) {
         console.log("Checking last modified date: " + path);
 
-        const lastModifiedDate = await this.getMetadata(path, 'lastModifiedDate', <User>ctx.context.user)
-        if (lastModifiedDate >= 0) {
-            callback(null, lastModifiedDate)
+        if (ctx.context.user) {
+            const lastModifiedDate = await this.getMetadata(path, 'lastModifiedDate', <User>ctx.context.user)
+            if (lastModifiedDate >= 0) {
+                callback(null, lastModifiedDate)
+            } else {
+                callback(webdav.Errors.None)
+            }
         } else {
-            callback(webdav.Errors.None)
+            callback(webdav.Errors.BadAuthentication)
         }
     }
 }
