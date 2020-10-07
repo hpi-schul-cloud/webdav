@@ -15,6 +15,7 @@ import {Readable} from "stream";
 import {ILockManager} from "webdav-server/lib/manager/v2/fileSystem/LockManager";
 import {IPropertyManager} from "webdav-server/lib/manager/v2/fileSystem/PropertyManager";
 import User from "./User";
+import {environment} from './config/globals';
 
 class WebFileSystemSerializer implements webdav.FileSystemSerializer {
     uid(): string {
@@ -61,7 +62,7 @@ class WebFileSystem extends webdav.FileSystem {
         const rootID = this.resources.get(user.uid).get('/' + path.rootName()).id;
         const parentID = this.resources.get(user.uid).get(path.toString()).id;
 
-        const res = await fetch(process.env.BASE_URL + '/fileStorage?owner=' + rootID + (parentID != rootID ? '&parent=' + parentID : ''), {
+        const res = await fetch(environment.BASE_URL + '/fileStorage?owner=' + rootID + (parentID != rootID ? '&parent=' + parentID : ''), {
             headers: {
                 'Authorization': 'Bearer ' + user.jwt
             }
@@ -94,7 +95,7 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<string[]>}  List of courses
      */
     async loadCourses(user: User) : Promise<string[]> {
-        const res = await fetch(process.env.BASE_URL + '/courses', {
+        const res = await fetch(environment.BASE_URL + '/courses', {
             headers: {
                 'Authorization': 'Bearer ' + user.jwt
             }
@@ -188,7 +189,7 @@ class WebFileSystem extends webdav.FileSystem {
 
         if (info.context.user) {
             this.createUserFileSystem(info.context.user.uid)
-            const res = await fetch(process.env.BASE_URL + '/fileStorage/signedUrl?file=' + this.resources.get(info.context.user.uid).get(path.toString()).id, {
+            const res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl?file=' + this.resources.get(info.context.user.uid).get(path.toString()).id, {
                 headers: {
                     'Authorization': 'Bearer ' + (<User>info.context.user).jwt
                 }

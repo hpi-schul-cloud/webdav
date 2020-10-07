@@ -4,6 +4,7 @@ import {IUser} from "webdav-server/lib/user/v2/IUser";
 import User from "./User";
 import {v2 as webdav} from "webdav-server";
 import * as fetch from 'node-fetch'
+import {environment} from './config/globals';
 
 export default class UserManager implements ITestableUserManager, IListUserManager {
 
@@ -40,7 +41,7 @@ export default class UserManager implements ITestableUserManager, IListUserManag
             }
         }
 
-        const res = await fetch(process.env.BASE_URL + '/authentication', {
+        const res = await fetch(environment.BASE_URL + '/authentication', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
