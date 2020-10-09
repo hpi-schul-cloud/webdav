@@ -2,6 +2,7 @@ import {v2 as webdav} from "webdav-server";
 import WebFileSystem from "./WebFileSystem";
 import UserManager from "./UserManager";
 import {AddressInfo} from "net";
+import logger from './logger';
 
 require('dotenv').config()
 
@@ -15,23 +16,23 @@ const server = new webdav.WebDAVServer({
 
 server.setFileSystem('courses', new WebFileSystem(), (succeeded) => {
     if (succeeded) {
-        console.log("Successfully mounted 'courses' file system!")
+        logger.info("Successfully mounted 'courses' file system!")
     }
 });
 
 server.setFileSystem('my', new WebFileSystem(), (succeeded) => {
     if (succeeded) {
-        console.log("Successfully mounted 'my files' file system!")
+        logger.info("Successfully mounted 'my files' file system!")
     }
 });
 
 server.setFileSystem('teams', new WebFileSystem(), (succeeded) => {
     if (succeeded) {
-        console.log("Successfully mounted 'teams' file system!")
+        logger.info("Successfully mounted 'teams' file system!")
     }
 });
 
 server.start((s) => {
     const { port } = s.address() as AddressInfo
-    console.log('Ready on port ' + port)
+    logger.info('Ready on port ' + port)
 });

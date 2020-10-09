@@ -16,6 +16,7 @@ import {ILockManager} from "webdav-server/lib/manager/v2/fileSystem/LockManager"
 import {IPropertyManager} from "webdav-server/lib/manager/v2/fileSystem/PropertyManager";
 import User from "./User";
 import {environment} from './config/globals';
+import logger from './logger';
 
 class WebFileSystemSerializer implements webdav.FileSystemSerializer {
     uid(): string {
@@ -73,8 +74,8 @@ class WebFileSystem extends webdav.FileSystem {
             const creationDate = new Date(resource.createdAt)
             const lastModifiedDate = new Date(resource.updatedAt)
 
-            console.log(resource.name)
-            console.log(resource.permissions)
+            logger.info(resource.name)
+            logger.info(resource.permissions)
 
             this.resources.get(user.uid).set(path.getChildPath(resource.name).toString(), {
                 type: resource.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
@@ -184,7 +185,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     _fastExistCheck (ctx : RequestContext, path : Path, callback : (exists : boolean) => void) : void {
-        console.log("Checking existence: " + path)
+        logger.info("Checking existence: " + path)
 
         // TODO: Implement real existence check
 
@@ -192,7 +193,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     async _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : Promise<void> {
-        console.log("Reading file: " + path)
+        logger.info("Reading file: " + path)
 
         if (info.context.user) {
             this.createUserFileSystem(info.context.user.uid)
@@ -204,7 +205,7 @@ class WebFileSystem extends webdav.FileSystem {
 
             const data = await res.json()
 
-            console.log("Signed URL: ", data.url)
+            logger.info("Signed URL: ", data.url)
 
             // TODO: URL should be cached
 
@@ -214,7 +215,7 @@ class WebFileSystem extends webdav.FileSystem {
 
                 callback(null, new webdav.VirtualFileReadable([ buffer ]))
             } else {
-                console.log(data)
+                logger.info(data)
                 callback(webdav.Errors.Forbidden)
             }
         } else {
@@ -223,7 +224,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     async _readDir(path: Path, info: ReadDirInfo, callback: ReturnCallback<string[] | Path[]>): Promise<void> {
-        console.log("Reading dir: " + path)
+        logger.info("Reading dir: " + path)
 
         if (info.context.user) {
             this.createUserFileSystem(info.context.user.uid)
@@ -240,7 +241,7 @@ class WebFileSystem extends webdav.FileSystem {
 
                         callback(null, resources)
                     } else {
-                        console.log('Directory could not be found')
+                        logger.info('Directory could not be found')
                         callback(webdav.Errors.ResourceNotFound)
                     }
                 }
@@ -251,17 +252,17 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     _propertyManager (path: Path, info: PropertyManagerInfo, callback: ReturnCallback<IPropertyManager>) : void {
-        console.log("Calling Property Manager: " + path)
+        logger.info("Calling Property Manager: " + path)
         callback(null, this.props);
     }
 
     _lockManager (path: Path, info:LockManagerInfo, callback:ReturnCallback<ILockManager>) : void {
-        console.log("Calling Lock Manager: " + path)
+        logger.info("Calling Lock Manager: " + path)
         callback(null, this.locks);
     }
 
     async _type(path: Path, info: TypeInfo, callback: ReturnCallback<ReturnType<any>>): Promise<void> {
-        console.log("Checking type: " + path);
+        logger.info("Checking type: " + path);
 
         if (info.context.user) {
             this.createUserFileSystem(info.context.user.uid)
@@ -273,7 +274,7 @@ class WebFileSystem extends webdav.FileSystem {
                 if (await this.loadPath(path, <User>info.context.user)) {
                     callback(null, this.resources.get(info.context.user.uid).get(path.toString()).type);
                 } else {
-                    console.log('Type could not be identified')
+                    logger.info('Type could not be identified')
                     callback(webdav.Errors.ResourceNotFound)
                 }
             }
@@ -283,7 +284,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     async _size(path: Path, ctx: SizeInfo, callback: ReturnCallback<number>) {
-        console.log("Checking size: " + path);
+        logger.info("Checking size: " + path);
 
         if (ctx.context.user) {
             this.createUserFileSystem(ctx.context.user.uid)
@@ -299,7 +300,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     async _creationDate(path: Path, ctx: CreationDateInfo, callback: ReturnCallback<number>) {
-        console.log("Checking creation date: " + path);
+        logger.info("Checking creation date: " + path);
 
         if (ctx.context.user) {
             this.createUserFileSystem(ctx.context.user.uid)
@@ -315,7 +316,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     async _lastModifiedDate(path: Path, ctx: LastModifiedDateInfo, callback: ReturnCallback<number>) {
-        console.log("Checking last modified date: " + path);
+        logger.info("Checking last modified date: " + path);
 
         if (ctx.context.user) {
             this.createUserFileSystem(ctx.context.user.uid)

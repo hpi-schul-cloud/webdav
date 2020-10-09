@@ -5,6 +5,7 @@ import User from "./User";
 import {v2 as webdav} from "webdav-server";
 import * as fetch from 'node-fetch'
 import {environment} from './config/globals';
+import logger from './logger';
 
 export default class UserManager implements ITestableUserManager, IListUserManager {
 
@@ -15,20 +16,20 @@ export default class UserManager implements ITestableUserManager, IListUserManag
     }
 
     getDefaultUser(callback: (user: IUser) => void): any {
-        console.log('Retrieving default user...')
+        logger.info('Retrieving default user...')
 
         callback(null)
     }
 
     getUserByName(name: string, callback: (error: Error, user?: IUser) => void): any {
-        console.log('Retrieving user by name...')
+        logger.info('Retrieving user by name...')
         // relevant for HTTPDigestAuthentication
     }
 
     async getUserByNamePassword(name: string, password: string, callback: (error: Error, user?: IUser) => void): Promise<any> {
         // Currently this method isn't called due to a missing authorisation header, probably because MacOS doesn't send an Authorization header to unsecured sites
 
-        console.log('Retrieving user by name and password...')
+        logger.info('Retrieving user by name and password...')
         // relevant for HTTPBasicAuthentication
 
         if (this.users.has(name)) {
@@ -36,7 +37,7 @@ export default class UserManager implements ITestableUserManager, IListUserManag
                 callback(null, this.users.get(name))
                 return
             } else {
-                console.log('Access denied!')
+                logger.info('Access denied!')
                 callback(webdav.Errors.BadAuthentication)
                 return
             }
@@ -63,13 +64,13 @@ export default class UserManager implements ITestableUserManager, IListUserManag
             this.users.set(name, user)
             callback(null, user)
         } else {
-            console.log('Access denied!')
+            logger.error('Access denied!')
             callback(webdav.Errors.BadAuthentication)
         }
     }
 
     getUsers(callback: (error: Error, users?: IUser[]) => void): any {
-        console.log('Retrieving users...')
+        logger.info('Retrieving users...')
 
         callback(null, [...this.users.values()])
     }
