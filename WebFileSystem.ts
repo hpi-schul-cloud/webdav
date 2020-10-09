@@ -82,6 +82,7 @@ class WebFileSystem extends webdav.FileSystem {
                 size: resource.size,
                 creationDate: creationDate.getTime(),
                 lastModifiedDate: lastModifiedDate.getTime(),
+                permissions: resource.permissions
             });
         }
         return data.map((resource) => resource.name)
@@ -170,6 +171,12 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
+    /*
+     * Creates an entry in resources-map if it not exists
+     *
+     * @param {string} uid   User-ID of the logged in user
+     *
+     */
     createUserFileSystem(uid: string) {
         if (!this.resources.has(uid)) {
             this.resources.set(uid, new Map())

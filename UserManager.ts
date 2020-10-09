@@ -36,6 +36,7 @@ export default class UserManager implements ITestableUserManager, IListUserManag
                 callback(null, this.users.get(name))
                 return
             } else {
+                console.log('Access denied!')
                 callback(webdav.Errors.BadAuthentication)
                 return
             }
@@ -56,13 +57,13 @@ export default class UserManager implements ITestableUserManager, IListUserManag
 
         const data = await res.json()
 
-        console.log(data)
-
         if (data.accessToken) {
             const user = new User(data.account.userId, name, password, data.accessToken)
+            await user.loadRoles()
             this.users.set(name, user)
             callback(null, user)
         } else {
+            console.log('Access denied!')
             callback(webdav.Errors.BadAuthentication)
         }
     }
