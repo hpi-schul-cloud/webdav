@@ -37,3 +37,4 @@
 - [ ] Delete Files
 - [ ] Move Dir 
 - [ ] Delete Dir
+- [ ] Populate Permissions directly on SC-server

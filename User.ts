@@ -21,6 +21,9 @@ export default class User implements IUser {
      * Loads the roles of the user
      */
     async loadRoles() {
+
+        // TODO: Implement logic on SC-server instead of webdav with a specific flag
+
         const res = await fetch(environment.BASE_URL + '/roles/user/' + this.uid, {
             headers: {
                 'Authorization': 'Bearer ' + this.jwt
