@@ -30,7 +30,7 @@
 - [ ] NextCloud / OwnCloud server info
 - [ ] Handle Permissions
 - [x] Handle available metadata
-- [x] Have updatetAT available on directories
+- [ ] Have updatetAt available on directories (must be done in SC Server)
 - [ ] Create Files
 - [ ] Create Dirs
 - [ ] Move Files 
