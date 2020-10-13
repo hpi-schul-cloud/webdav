@@ -3,15 +3,16 @@ import * as fetch from 'node-fetch'
 import {Path} from "webdav-server/lib/manager/v2/Path";
 import {RequestContext} from "webdav-server/lib/server/v2/RequestContext";
 import {
-    CreationDateInfo, DisplayNameInfo, LastModifiedDateInfo,
-    LockManagerInfo,
-    OpenReadStreamInfo,
+    CreateInfo,
+    CreationDateInfo, DeleteInfo, DisplayNameInfo, LastModifiedDateInfo,
+    LockManagerInfo, MoveInfo,
+    OpenReadStreamInfo, OpenWriteStreamInfo,
     PropertyManagerInfo,
-    ReadDirInfo, SizeInfo,
+    ReadDirInfo, RenameInfo, SizeInfo,
     TypeInfo
 } from "webdav-server/lib/manager/v2/fileSystem/ContextInfo";
-import {ReturnCallback} from "webdav-server/lib/manager/v2/fileSystem/CommonTypes";
-import {Readable} from "stream";
+import {ReturnCallback, SimpleCallback} from "webdav-server/lib/manager/v2/fileSystem/CommonTypes";
+import {Readable, Writable} from "stream";
 import {ILockManager} from "webdav-server/lib/manager/v2/fileSystem/LockManager";
 import {IPropertyManager} from "webdav-server/lib/manager/v2/fileSystem/PropertyManager";
 import User from "./User";
@@ -223,14 +224,6 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
-    _fastExistCheck (ctx : RequestContext, path : Path, callback : (exists : boolean) => void) : void {
-        logger.info("Checking existence: " + path)
-
-        // TODO: Implement real existence check
-
-        callback(true);
-    }
-
     async _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : Promise<void> {
         logger.info("Reading file: " + path)
 
@@ -313,7 +306,6 @@ class WebFileSystem extends webdav.FileSystem {
                 if (await this.loadPath(path, <User>info.context.user)) {
                     callback(null, this.resources.get(info.context.user.uid).get(path.toString()).type);
                 } else {
-                    logger.info('Type could not be identified')
                     callback(webdav.Errors.ResourceNotFound)
                 }
             }
@@ -365,6 +357,62 @@ class WebFileSystem extends webdav.FileSystem {
             } else {
                 callback(webdav.Errors.None)
             }
+        } else {
+            callback(webdav.Errors.BadAuthentication)
+        }
+    }
+
+    _create(path: Path, ctx: CreateInfo, callback: SimpleCallback) {
+        logger.info("Writing file: " + path)
+        logger.info(ctx.type)
+
+        if (ctx.context.user) {
+            // TODO
+            callback(webdav.Errors.Forbidden)
+        } else {
+            callback(webdav.Errors.BadAuthentication)
+        }
+    }
+
+    _delete(path: Path, ctx: DeleteInfo, callback: SimpleCallback) {
+        logger.info("Deleting file: " + path)
+
+        if (ctx.context.user) {
+            // TODO
+            callback(webdav.Errors.Forbidden)
+        } else {
+            callback(webdav.Errors.BadAuthentication)
+        }
+    }
+
+    _openWriteStream(path: Path, ctx: OpenWriteStreamInfo, callback: ReturnCallback<Writable>) {
+        logger.info("Writing file: " + path)
+
+        if (ctx.context.user) {
+            // TODO
+            callback(webdav.Errors.Forbidden)
+        } else {
+            callback(webdav.Errors.BadAuthentication)
+        }
+    }
+
+    _move(pathFrom: Path, pathTo: Path, ctx: MoveInfo, callback: ReturnCallback<boolean>) {
+        logger.info("Moving file: " + pathFrom + " --> " + pathTo)
+
+        if (ctx.context.user) {
+            // TODO
+            callback(webdav.Errors.Forbidden)
+        } else {
+            callback(webdav.Errors.BadAuthentication)
+        }
+    }
+
+    _rename(pathFrom: Path, newName: string, ctx: RenameInfo, callback: ReturnCallback<boolean>) {
+        logger.info("Renaming file: " + pathFrom + " --> " + newName)
+
+        if (ctx.context.user) {
+            // TODO
+            callback(webdav.Errors.Forbidden)
         } else {
             callback(webdav.Errors.BadAuthentication)
         }
