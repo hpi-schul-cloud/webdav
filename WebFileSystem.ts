@@ -52,6 +52,43 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
+     * Populates permissions by combining user and roles permissions
+     *
+     * @param {Array<any>} permissions   Permissions of one file or directory
+     * @param {User} user   Current user
+     *
+     * @return {any}  Permission object containing write, read, create and delete permissions
+     */
+    populatePermissions(permissions: Array<any>, user: User): any {
+        let filePermissions = {
+            write: false,
+            read: false,
+            create: false,
+            delete: false
+        }
+
+        const userPerm = permissions.find(permission => permission.refPermModel === 'user' && permission.refId === user.uid)
+        if (userPerm) {
+            filePermissions.write = userPerm.write
+            filePermissions.read = userPerm.read
+            filePermissions.create = userPerm.create
+            filePermissions.delete = userPerm.delete
+        }
+
+        for (const role of user.roles) {
+            const rolePerm = permissions.find(permission => permission.refPermModel === 'role' && permission.refId === role)
+            if (rolePerm) {
+                filePermissions.write = rolePerm.write ? true : filePermissions.write
+                filePermissions.read = rolePerm.read ? true : filePermissions.read
+                filePermissions.create = rolePerm.create ? true : filePermissions.create
+                filePermissions.delete = rolePerm.delete ? true : filePermissions.delete
+            }
+        }
+
+        return filePermissions
+    }
+
+    /*
      * Loads the resources of the given directory
      *
      * @param {Path} path   Path of the directory
@@ -74,8 +111,10 @@ class WebFileSystem extends webdav.FileSystem {
             const creationDate = new Date(resource.createdAt)
             const lastModifiedDate = new Date(resource.updatedAt)
 
+            const permissions = this.populatePermissions(resource.permissions, user)
+
             logger.info(resource.name)
-            logger.info(resource.permissions)
+            logger.info(permissions)
 
             this.resources.get(user.uid).set(path.getChildPath(resource.name).toString(), {
                 type: resource.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
@@ -83,7 +122,7 @@ class WebFileSystem extends webdav.FileSystem {
                 size: resource.size,
                 creationDate: creationDate.getTime(),
                 lastModifiedDate: lastModifiedDate.getTime(),
-                permissions: resource.permissions
+                permissions
             });
         }
         return data.map((resource) => resource.name)
