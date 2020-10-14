@@ -373,13 +373,55 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
-    _create(path: Path, ctx: CreateInfo, callback: SimpleCallback) {
-        logger.info("Writing file: " + path)
+    /*
+     * Creates resource with given path
+     *
+     * @param {Path} path   Path of the resource
+     * @param {User} user   Current user
+     * @param {webdav.ResourceType} type   Type of the new resource
+     *
+     * @return {Promise<Error>}   Error or null depending on success of creation
+     */
+    async createResource (path: Path, user: User, type: webdav.ResourceType) : Promise<Error> {
+        const owner: string = this.resources.get(user.uid).get('/' + path.rootName()).id
+        const parent: string = this.resources.get(user.uid).get(path.getParent().toString()).id
+
+        logger.info(owner)
+        logger.info(parent)
+
+        // TODO: Manage permissions
+
+        const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories' : '') + '?name=' + path.fileName() + '&owner=' + owner + (owner !== parent ? '&parent=' + parent : ''), {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + user.jwt
+            }
+        })
+
+        const data = await res.json()
+
+        logger.info(data)
+
+        return null
+    }
+
+    async _create(path: Path, ctx: CreateInfo, callback: SimpleCallback) {
+        logger.info("Creating resource: " + path)
         logger.info(ctx.type)
 
         if (ctx.context.user) {
-            // TODO
-            callback(webdav.Errors.Forbidden)
+            this.createUserFileSystem(ctx.context.user.uid)
+            if (this.resources.get(ctx.context.user.uid).has(path.getParent().toString())) {
+                const error = await this.createResource(path, <User> ctx.context.user, ctx.type)
+                callback(error)
+            } else {
+                if (await this.loadPath(path.getParent(), <User> ctx.context.user)) {
+                    const error = await this.createResource(path, <User> ctx.context.user, ctx.type)
+                    callback(error)
+                } else {
+                    callback(webdav.Errors.ResourceNotFound)
+                }
+            }
         } else {
             callback(webdav.Errors.BadAuthentication)
         }
