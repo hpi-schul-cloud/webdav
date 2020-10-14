@@ -116,6 +116,18 @@ class WebFileSystem extends webdav.FileSystem {
             logger.info(resource.name)
             logger.info(permissions)
 
+            /*
+            *   Could be simpler than current population strategy:
+            *
+            const permissionRes = await fetch(environment.BASE_URL + '/fileStorage/permission?file=' + resource._id, {
+                headers: {
+                    'Authorization': 'Bearer ' + user.jwt
+                }
+            })
+
+            logger.info(await permissionRes.json())
+             */
+
             this.resources.get(user.uid).set(path.getChildPath(resource.name).toString(), {
                 type: resource.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
                 id: resource._id,
@@ -373,9 +385,17 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
+    /*
+     * Deletes resource with given path
+     *
+     * @param {Path} path   Path of the resource
+     * @param {User} user   Current user
+     *
+     * @return {Promise<Error>}   Error or null depending on success of deletion
+     */
     async deleteResource (path: Path, user: User) : Promise<Error> {
-        const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
         if (this.resources.get(user.uid).get(path.toString()).permissions.delete) {
+            const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
             const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories?_id=' : '?_id=') + this.resources.get(user.uid).get(path.toString()).id, {
                 method: 'DELETE',
                 headers: {
@@ -436,12 +456,55 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
-    _rename(pathFrom: Path, newName: string, ctx: RenameInfo, callback: ReturnCallback<boolean>) {
+    /*
+     * Renames resource with given path
+     *
+     * @param {Path} path   Path of the resource
+     * @param {User} user   Current user
+     * @param {string} newName   new name of the resource
+     *
+     * @return {Promise<Error>}   Error or null depending on success of renaming
+     */
+    async renameResource (path: Path, user: User, newName: string) : Promise<Error> {
+        if (this.resources.get(user.uid).get(path.toString()).permissions.write) {
+            const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
+            const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories' : '') + '/rename', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + user.jwt
+                },
+                body: JSON.stringify({
+                    id: this.resources.get(user.uid).get(path.toString()).id,
+                    newName
+                })
+            })
+
+            const data = await res.json()
+
+            logger.info(data)
+
+            return null
+        } else {
+            return webdav.Errors.Forbidden
+        }
+    }
+
+   async _rename(pathFrom: Path, newName: string, ctx: RenameInfo, callback: ReturnCallback<boolean>) {
         logger.info("Renaming file: " + pathFrom + " --> " + newName)
 
         if (ctx.context.user) {
-            // TODO
-            callback(webdav.Errors.Forbidden)
+            this.createUserFileSystem(ctx.context.user.uid)
+            if (this.resources.get(ctx.context.user.uid).has(pathFrom.toString())) {
+                const error = await this.renameResource(pathFrom, <User> ctx.context.user, newName)
+                callback(error)
+            } else {
+                if (await this.loadPath(pathFrom, <User> ctx.context.user)) {
+                    const error = await this.renameResource(pathFrom, <User> ctx.context.user, newName)
+                    callback(error)
+                } else {
+                    callback(webdav.Errors.ResourceNotFound)
+                }
+            }
         } else {
             callback(webdav.Errors.BadAuthentication)
         }
