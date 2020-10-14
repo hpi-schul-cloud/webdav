@@ -1,10 +1,9 @@
 import {v2 as webdav} from "webdav-server";
 import * as fetch from 'node-fetch'
 import {Path} from "webdav-server/lib/manager/v2/Path";
-import {RequestContext} from "webdav-server/lib/server/v2/RequestContext";
 import {
     CreateInfo,
-    CreationDateInfo, DeleteInfo, DisplayNameInfo, LastModifiedDateInfo,
+    CreationDateInfo, DeleteInfo, LastModifiedDateInfo,
     LockManagerInfo, MoveInfo,
     OpenReadStreamInfo, OpenWriteStreamInfo,
     PropertyManagerInfo,
@@ -374,12 +373,42 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
-    _delete(path: Path, ctx: DeleteInfo, callback: SimpleCallback) {
-        logger.info("Deleting file: " + path)
+    async deleteResource (path: Path, user: User) : Promise<Error> {
+        const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
+        if (this.resources.get(user.uid).get(path.toString()).permissions.delete) {
+            const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories?_id=' : '?_id=') + this.resources.get(user.uid).get(path.toString()).id, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': 'Bearer ' + user.jwt
+                }
+            })
+
+            const data = await res.json()
+
+            logger.info(data)
+
+            return null
+        } else {
+            return webdav.Errors.Forbidden
+        }
+    }
+
+    async _delete(path: Path, ctx: DeleteInfo, callback: SimpleCallback) {
+        logger.info("Deleting resource: " + path)
 
         if (ctx.context.user) {
-            // TODO
-            callback(webdav.Errors.Forbidden)
+            this.createUserFileSystem(ctx.context.user.uid)
+            if (this.resources.get(ctx.context.user.uid).has(path.toString())) {
+                const error = await this.deleteResource(path, <User> ctx.context.user)
+                callback(error)
+            } else {
+                if (await this.loadPath(path, <User> ctx.context.user)) {
+                    const error = await this.deleteResource(path, <User> ctx.context.user)
+                    callback(error)
+                } else {
+                    callback(webdav.Errors.ResourceNotFound)
+                }
+            }
         } else {
             callback(webdav.Errors.BadAuthentication)
         }
