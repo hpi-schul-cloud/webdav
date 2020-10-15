@@ -386,26 +386,28 @@ class WebFileSystem extends webdav.FileSystem {
         const owner: string = this.resources.get(user.uid).get('/' + path.rootName()).id
         const parent: string = this.resources.get(user.uid).get(path.getParent().toString()).id
 
-        logger.info(owner)
-        logger.info(parent)
-
         // TODO: Manage permissions
 
-        const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories' : ''), {
+        const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories' : '/files/new'), {
             method: 'POST',
             headers: {
-                'Authorization': 'Bearer ' + user.jwt
+                'Authorization': 'Bearer ' + user.jwt,
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 name: path.fileName(),
                 owner,
-                parent
+                parent: (parent != owner) ? parent : undefined
             })
         })
 
         const data = await res.json()
 
         logger.info(data)
+
+        if (!data._id) {
+            return webdav.Errors.InvalidOperation
+        }
 
         return null
     }
