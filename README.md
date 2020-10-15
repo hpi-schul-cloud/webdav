@@ -28,13 +28,14 @@
 ## More TODOs
 - [ ] NextCloud / OwnCloud custom attributes
 - [ ] NextCloud / OwnCloud server info
-- [ ] Handle Permissions
+- [X] Handle Permissions
 - [x] Handle available metadata
 - [ ] Have updatetAt available on directories (must be done in SC Server)
-- [ ] Create Files
-- [ ] Create Dirs
+- [X] Create Files
+- [X] Create Dirs
+- [ ] Write/Upload Files
 - [ ] Move Files 
-- [ ] Delete Files
 - [ ] Move Dir 
-- [ ] Delete Dir
+- [X] Delete Files
+- [X] Delete Dir
 - [ ] Populate Permissions directly on SC-server

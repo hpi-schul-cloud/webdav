@@ -374,7 +374,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
-     * Creates resource with given path
+     * Creates resource with given path (only docx, pptx or xlsx)
      *
      * @param {Path} path   Path of the resource
      * @param {User} user   Current user
@@ -487,8 +487,29 @@ class WebFileSystem extends webdav.FileSystem {
         logger.info("Writing file: " + path)
 
         if (ctx.context.user) {
-            // TODO
-            callback(webdav.Errors.Forbidden)
+            this.createUserFileSystem(ctx.context.user.uid)
+            if (this.resources.get(ctx.context.user.uid).has(path.toString())) {
+                // TODO: Get current content
+                let content = []
+                let stream = new webdav.VirtualFileWritable(content)
+
+                stream.on('finish', () => {
+                    // TODO: Upload to storage bucket
+                    logger.info(content)
+                })
+
+                callback(null, stream)
+            } else {
+                let content = []
+                let stream = new webdav.VirtualFileWritable(content)
+
+                stream.on('finish', () => {
+                    // TODO: Upload to storage bucket
+                    logger.info(content)
+                })
+
+                callback(null, stream)
+            }
         } else {
             callback(webdav.Errors.BadAuthentication)
         }
