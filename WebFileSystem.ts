@@ -1,5 +1,6 @@
 import {v2 as webdav} from "webdav-server";
 import * as fetch from 'node-fetch'
+import * as mime from 'mime-types'
 import {Path} from "webdav-server/lib/manager/v2/Path";
 import {
     CreateInfo,
@@ -486,12 +487,13 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
-    async requestSignedUrl (fileType: string, path: Path, user: User) {
+    async requestSignedUrl (path: Path, user: User) {
         const filename = path.fileName()
+        const contentType = mime.lookup(filename) || 'application/octet-stream'
         const parent = this.resources.get(user.uid).get(path.getParent().toString()).id
 
         logger.info(filename)
-        logger.info(fileType)
+        logger.info(contentType)
         logger.info(parent)
 
         const res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl', {
@@ -502,22 +504,31 @@ class WebFileSystem extends webdav.FileSystem {
             },
             body: JSON.stringify({
                 filename,
-                fileType,
+                fileType: contentType,
                 parent: this.resources.get(user.uid).get('/' + path.rootName()).id != parent ? parent : undefined
             })
         })
 
         const data = await res.json()
 
-        return data.url
+        return data
     }
 
-    async writeToSignedUrl (url, content) {
+    async writeToSignedUrl (url, header, content) {
+        logger.info(header)
+        logger.info(content)
+
         const res = await fetch(url, {
-            method: 'PUT'
+            method: 'PUT',
+            headers: {
+                ...header
+            },
+            body: content,
         })
 
         const data = await res.json()
+
+        logger.info(data)
     }
 
     async _openWriteStream(path: Path, ctx: OpenWriteStreamInfo, callback: ReturnCallback<Writable>) {
@@ -531,11 +542,8 @@ class WebFileSystem extends webdav.FileSystem {
                 let stream = new webdav.VirtualFileWritable(content)
 
                 stream.on('finish', async () => {
-                    const url = await this.requestSignedUrl('application/octet-stream', path, <User> ctx.context.user)
-                    // TODO: PUT-Request to signedUrl
-
-                    logger.info(url)
-                    logger.info(content)
+                    const data = await this.requestSignedUrl(path, <User> ctx.context.user)
+                    await this.writeToSignedUrl(data.url, data.header, content)
                 })
 
                 callback(null, stream)
@@ -544,11 +552,8 @@ class WebFileSystem extends webdav.FileSystem {
                 let stream = new webdav.VirtualFileWritable(content)
 
                 stream.on('finish', async () => {
-                    const url = await this.requestSignedUrl('application/octet-stream', path, <User> ctx.context.user)
-                    // TODO: PUT-Request to signedUrl
-
-                    logger.info(url)
-                    logger.info(content)
+                    const data = await this.requestSignedUrl(path, <User> ctx.context.user)
+                    await this.writeToSignedUrl(data.url, data.header, content)
                 })
 
                 callback(null, stream)
