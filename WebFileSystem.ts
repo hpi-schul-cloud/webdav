@@ -405,9 +405,12 @@ class WebFileSystem extends webdav.FileSystem {
 
         logger.info(data)
 
+        // TODO: Handle non Microsoft Office options
+        /*
         if (!data._id) {
             return webdav.Errors.InvalidOperation
         }
+         */
 
         return null
     }
@@ -483,7 +486,41 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
-    _openWriteStream(path: Path, ctx: OpenWriteStreamInfo, callback: ReturnCallback<Writable>) {
+    async requestSignedUrl (fileType: string, path: Path, user: User) {
+        const filename = path.fileName()
+        const parent = this.resources.get(user.uid).get(path.getParent().toString()).id
+
+        logger.info(filename)
+        logger.info(fileType)
+        logger.info(parent)
+
+        const res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + user.jwt,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                filename,
+                fileType,
+                parent: this.resources.get(user.uid).get('/' + path.rootName()).id != parent ? parent : undefined
+            })
+        })
+
+        const data = await res.json()
+
+        return data.url
+    }
+
+    async writeToSignedUrl (url, content) {
+        const res = await fetch(url, {
+            method: 'PUT'
+        })
+
+        const data = await res.json()
+    }
+
+    async _openWriteStream(path: Path, ctx: OpenWriteStreamInfo, callback: ReturnCallback<Writable>) {
         logger.info("Writing file: " + path)
 
         if (ctx.context.user) {
@@ -493,8 +530,11 @@ class WebFileSystem extends webdav.FileSystem {
                 let content = []
                 let stream = new webdav.VirtualFileWritable(content)
 
-                stream.on('finish', () => {
-                    // TODO: Upload to storage bucket
+                stream.on('finish', async () => {
+                    const url = await this.requestSignedUrl('application/octet-stream', path, <User> ctx.context.user)
+                    // TODO: PUT-Request to signedUrl
+
+                    logger.info(url)
                     logger.info(content)
                 })
 
@@ -503,8 +543,11 @@ class WebFileSystem extends webdav.FileSystem {
                 let content = []
                 let stream = new webdav.VirtualFileWritable(content)
 
-                stream.on('finish', () => {
-                    // TODO: Upload to storage bucket
+                stream.on('finish', async () => {
+                    const url = await this.requestSignedUrl('application/octet-stream', path, <User> ctx.context.user)
+                    // TODO: PUT-Request to signedUrl
+
+                    logger.info(url)
                     logger.info(content)
                 })
 
