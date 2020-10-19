@@ -505,7 +505,8 @@ class WebFileSystem extends webdav.FileSystem {
             body: JSON.stringify({
                 filename,
                 fileType: contentType,
-                parent: this.resources.get(user.uid).get('/' + path.rootName()).id != parent ? parent : undefined
+                parent: this.resources.get(user.uid).get('/' + path.rootName()).id != parent ? parent : undefined,
+                action: 'putObject'
             })
         })
 
@@ -514,16 +515,39 @@ class WebFileSystem extends webdav.FileSystem {
         return data
     }
 
-    async writeToSignedUrl (url, header, content) {
+    async writeToSignedUrl (url: string, header: any, content) {
         logger.info(header)
-        logger.info(content)
+        logger.info(Buffer.concat(content).byteLength)
 
         const res = await fetch(url, {
             method: 'PUT',
             headers: {
                 ...header
             },
-            body: content,
+            body: Buffer.concat(content),
+        })
+    }
+
+    async writeToFileStorage (path: Path, user: User, header, content) {
+        const owner = this.resources.get(user.uid).get('/' + path.rootName()).id
+        const parent = this.resources.get(user.uid).get(path.getParent().toString()).id
+        const type = mime.lookup(path.fileName()) || 'application/octet-stream'
+
+        const res = await fetch(environment.BASE_URL + '/fileStorage', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + user.jwt,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: path.fileName(),
+                owner,
+                parent: parent != owner ? parent : undefined,
+                type,
+                size: Buffer.concat(content).byteLength,
+                storageFileName: header['x-amz-meta-flat-name'],
+                thumbnail: header['x-amz-meta-thumbnail']
+            })
         })
 
         const data = await res.json()
@@ -544,6 +568,7 @@ class WebFileSystem extends webdav.FileSystem {
                 stream.on('finish', async () => {
                     const data = await this.requestSignedUrl(path, <User> ctx.context.user)
                     await this.writeToSignedUrl(data.url, data.header, content)
+                    await this.writeToFileStorage(path, <User> ctx.context.user, data.header, content)
                 })
 
                 callback(null, stream)
@@ -554,6 +579,7 @@ class WebFileSystem extends webdav.FileSystem {
                 stream.on('finish', async () => {
                     const data = await this.requestSignedUrl(path, <User> ctx.context.user)
                     await this.writeToSignedUrl(data.url, data.header, content)
+                    await this.writeToFileStorage(path, <User> ctx.context.user, data.header, content)
                 })
 
                 callback(null, stream)
