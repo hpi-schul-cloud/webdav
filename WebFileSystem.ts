@@ -244,7 +244,7 @@ class WebFileSystem extends webdav.FileSystem {
 
         if (info.context.user) {
             this.createUserFileSystem(info.context.user.uid)
-            const url = this.retrieveSignedUrl(path, <User> info.context.user)
+            const url = await this.retrieveSignedUrl(path, <User> info.context.user)
 
             logger.info("Signed URL: ", url)
 
@@ -496,7 +496,7 @@ class WebFileSystem extends webdav.FileSystem {
         })
 
         const data = await res.json()
-
+        
         return data.url
     }
 
@@ -591,7 +591,7 @@ class WebFileSystem extends webdav.FileSystem {
 
             if (this.resources.get(user.uid).has(path.toString())) {
                 logger.info('Resource exists')
-                const url = this.retrieveSignedUrl(path, user)
+                const url = await this.retrieveSignedUrl(path, user)
 
                 const file = await fetch(url)
                 const buffer = await file.buffer()
