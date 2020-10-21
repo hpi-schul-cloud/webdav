@@ -44,3 +44,4 @@
 - [ ] handle my files
 - [ ] Handle shared files
 - [ ] Add Dockerfile
+- [ ] Make it work on OS X (currently the top level folders are shown as executables)
