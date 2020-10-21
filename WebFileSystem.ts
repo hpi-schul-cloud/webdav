@@ -611,12 +611,78 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
-    _move(pathFrom: Path, pathTo: Path, ctx: MoveInfo, callback: ReturnCallback<boolean>) {
+    /*
+     * Moves File to new Folder
+     *
+     * @param {string} ressourceID      ID of the resource
+     * @param {string} newParentID      ID of the new Parent
+     * @param {User} user               Current user
+     *
+     * @return {Promise<Error>}   Error or null depending on success of moving
+     */
+    async moveRessource(ressourceID: string, newParentID: string, user: User) : Promise<Error> {
+        return await fetch(`${environment.BASE_URL}/fileStorage/${ressourceID}`,{
+            method: 'PATCH',
+            headers: {
+                'Authorization': 'Bearer ' + user.jwt,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                parent: newParentID,
+            }),
+        }).then(() => {
+            //TODO: some error handling?
+            return null
+        }).catch(() => {
+            logger.error('File at moveRessource() could not be moved', user.uid,ressourceID,newParentID);
+            return webdav.Errors.Forbidden
+        } )
+    }
+    
+    /*
+     * Gets ID by path and user. 
+     * ! Assumes that ressource is loaded in this.ressource ! 
+     *
+     * @param {string} path         Path to resource
+     * @param {User} user           Current user
+     *
+     * @return {string}   ID of resource
+     */
+    getID(path: string, user: User) : string{
+        return this.resources.get(user.uid).get(path.toString()).id
+    }
+
+    async _move(pathFrom: Path, pathTo: Path, ctx: MoveInfo, callback: ReturnCallback<boolean>) {
         logger.info("Moving file: " + pathFrom + " --> " + pathTo)
 
         if (ctx.context.user) {
-            // TODO (Apparently not possible with SC-API)
-            callback(webdav.Errors.Forbidden)
+            const user: User = <User> ctx.context.user;
+
+            // renaming seems to be a move call in many clients but cannot be handled as such here:
+            if(pathFrom.toString().split('/').pop() !== pathTo.toString().split('/').pop()){
+                callback(await this.renameResource(pathFrom, user, pathTo.toString().split('/').pop()));
+                return;
+            }            
+            
+            if (await !this.loadPath(pathFrom, user) || await !this.loadPath(pathTo, user)){
+                callback(webdav.Errors.ResourceNotFound);
+                return ;
+            }
+
+            const fileID: string = this.getID(pathFrom.toString(), user);
+
+            const toParrentArray = pathTo.toString().split('/')
+            toParrentArray.pop()
+            if(toParrentArray.length < 1){
+                callback(webdav.Errors.Forbidden);
+                return;
+            }
+            const toParentPath = toParrentArray.join('/')
+
+            const toParentID: string = this.getID(toParentPath, user);
+
+            callback(await this.moveRessource(fileID, toParentID, user))
+
         } else {
             callback(webdav.Errors.BadAuthentication)
         }
@@ -637,19 +703,22 @@ class WebFileSystem extends webdav.FileSystem {
             const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories' : '') + '/rename', {
                 method: 'POST',
                 headers: {
-                    'Authorization': 'Bearer ' + user.jwt
+                    'Authorization': 'Bearer ' + user.jwt,
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     id: this.resources.get(user.uid).get(path.toString()).id,
                     newName
                 })
-            })
+            }).then((res) => res.json())
 
-            const data = await res.json()
-
-            logger.info(data)
-
-            return null
+            if(res.ok){
+                logger.info(`File at ${path.toString()} now named ${newName}`);
+                return null
+            }else{
+                logger.error(res)
+                return webdav.Errors.InvalidOperation
+            }    
         } else {
             return webdav.Errors.Forbidden
         }

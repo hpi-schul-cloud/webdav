@@ -33,9 +33,10 @@
 - [ ] Have updatetAt available on directories (must be done in SC Server)
 - [X] Create Files
 - [X] Create Dirs
-- [ ] Write/Upload Files
-- [ ] Move Files 
-- [ ] Move Dir 
+- [x] Upload Files
+- [x] Move Files 
+- [x] Move Dir 
 - [X] Delete Files
 - [X] Delete Dir
+- [ ] Write Files
 - [ ] Populate Permissions directly on SC-server
