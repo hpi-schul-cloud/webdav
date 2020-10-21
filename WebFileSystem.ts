@@ -246,7 +246,7 @@ class WebFileSystem extends webdav.FileSystem {
             this.createUserFileSystem(info.context.user.uid)
             const url = await this.retrieveSignedUrl(path, <User> info.context.user)
 
-            logger.info("Signed URL: ", url)
+            logger.info("Signed URL: " + url)
 
             // TODO: URL should be cached in resources (but needs to be renewed sometimes)
 
