@@ -40,4 +40,7 @@
 - [X] Delete Dir
 - [ ] Write Files
 - [ ] Populate Permissions directly on SC-server
+- [ ] Handle teams data
+- [ ] handle my files
+- [ ] Handle shared files
 - [ ] Add Dockerfile
