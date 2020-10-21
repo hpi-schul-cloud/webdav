@@ -4,11 +4,17 @@ import * as mime from 'mime-types'
 import {Path} from "webdav-server/lib/manager/v2/Path";
 import {
     CreateInfo,
-    CreationDateInfo, DeleteInfo, LastModifiedDateInfo,
-    LockManagerInfo, MoveInfo,
-    OpenReadStreamInfo, OpenWriteStreamInfo,
+    CreationDateInfo,
+    DeleteInfo,
+    LastModifiedDateInfo,
+    LockManagerInfo,
+    MoveInfo,
+    OpenReadStreamInfo,
+    OpenWriteStreamInfo,
     PropertyManagerInfo,
-    ReadDirInfo, RenameInfo, SizeInfo,
+    ReadDirInfo,
+    RenameInfo,
+    SizeInfo,
     TypeInfo
 } from "webdav-server/lib/manager/v2/fileSystem/ContextInfo";
 import {ReturnCallback, SimpleCallback} from "webdav-server/lib/manager/v2/fileSystem/CommonTypes";
@@ -113,9 +119,6 @@ class WebFileSystem extends webdav.FileSystem {
             const lastModifiedDate = new Date(resource.updatedAt)
 
             const permissions = this.populatePermissions(resource.permissions, user)
-
-            logger.info(resource.name)
-            logger.info(permissions)
 
             /*
             *   Could be simpler than current population strategy:
@@ -241,25 +244,18 @@ class WebFileSystem extends webdav.FileSystem {
 
         if (info.context.user) {
             this.createUserFileSystem(info.context.user.uid)
-            const res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl?file=' + this.resources.get(info.context.user.uid).get(path.toString()).id, {
-                headers: {
-                    'Authorization': 'Bearer ' + (<User>info.context.user).jwt
-                }
-            })
+            const url = this.retrieveSignedUrl(path, <User> info.context.user)
 
-            const data = await res.json()
+            logger.info("Signed URL: ", url)
 
-            logger.info("Signed URL: ", data.url)
+            // TODO: URL should be cached in resources (but needs to be renewed sometimes)
 
-            // TODO: URL should be cached
-
-            if (data.url) {
-                const file = await fetch(data.url)
+            if (url) {
+                const file = await fetch(url)
                 const buffer = await file.buffer()
 
                 callback(null, new webdav.VirtualFileReadable([ buffer ]))
             } else {
-                logger.info(data)
                 callback(webdav.Errors.Forbidden)
             }
         } else {
@@ -297,26 +293,28 @@ class WebFileSystem extends webdav.FileSystem {
 
     _propertyManager (path: Path, info: PropertyManagerInfo, callback: ReturnCallback<IPropertyManager>) : void {
         logger.info("Calling Property Manager: " + path)
-        callback(null, this.props);
+        callback(null, this.props)
     }
 
     _lockManager (path: Path, info:LockManagerInfo, callback:ReturnCallback<ILockManager>) : void {
         logger.info("Calling Lock Manager: " + path)
-        callback(null, this.locks);
+        callback(null, this.locks)
     }
 
     async _type(path: Path, info: TypeInfo, callback: ReturnCallback<ReturnType<any>>): Promise<void> {
-        logger.info("Checking type: " + path);
+        logger.info("Checking type: " + path)
 
         if (info.context.user) {
-            this.createUserFileSystem(info.context.user.uid)
+            const user: User = <User> info.context.user
+            this.createUserFileSystem(user.uid)
+
             if (!path.hasParent()) {
                 callback(null, webdav.ResourceType.Directory);
-            } else if (this.resources.get(info.context.user.uid).has(path.toString())) {
-                callback(null, this.resources.get(info.context.user.uid).get(path.toString()).type);
+            } else if (this.resources.get(user.uid).has(path.toString())) {
+                callback(null, this.resources.get(user.uid).get(path.toString()).type)
             } else {
-                if (await this.loadPath(path, <User>info.context.user)) {
-                    callback(null, this.resources.get(info.context.user.uid).get(path.toString()).type);
+                if (await this.loadPath(path, user)) {
+                    callback(null, this.resources.get(user.uid).get(path.toString()).type)
                 } else {
                     callback(webdav.Errors.ResourceNotFound)
                 }
@@ -404,9 +402,11 @@ class WebFileSystem extends webdav.FileSystem {
 
         const data = await res.json()
 
+        // TODO: Add file to resources
+
         logger.info(data)
 
-        // TODO: Handle non Microsoft Office options
+        // TODO: Handle non Microsoft Office options (maybe we don't need that, because it seems to work without them)
         /*
         if (!data._id) {
             return webdav.Errors.InvalidOperation
@@ -418,7 +418,6 @@ class WebFileSystem extends webdav.FileSystem {
 
     async _create(path: Path, ctx: CreateInfo, callback: SimpleCallback) {
         logger.info("Creating resource: " + path)
-        logger.info(ctx.type)
 
         if (ctx.context.user) {
             this.createUserFileSystem(ctx.context.user.uid)
@@ -460,6 +459,8 @@ class WebFileSystem extends webdav.FileSystem {
 
             logger.info(data)
 
+            this.resources.get(user.uid).delete(path.toString())
+
             return null
         } else {
             return webdav.Errors.Forbidden
@@ -487,14 +488,22 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
+    async retrieveSignedUrl (path: Path, user: User): Promise<string> {
+        const res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl?file=' + this.resources.get(user.uid).get(path.toString()).id, {
+            headers: {
+                'Authorization': 'Bearer ' + user.jwt
+            }
+        })
+
+        const data = await res.json()
+
+        return data.url
+    }
+
     async requestSignedUrl (path: Path, user: User) {
         const filename = path.fileName()
         const contentType = mime.lookup(filename) || 'application/octet-stream'
         const parent = this.resources.get(user.uid).get(path.getParent().toString()).id
-
-        logger.info(filename)
-        logger.info(contentType)
-        logger.info(parent)
 
         const res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl', {
             method: 'POST',
@@ -510,15 +519,10 @@ class WebFileSystem extends webdav.FileSystem {
             })
         })
 
-        const data = await res.json()
-
-        return data
+        return await res.json()
     }
 
     async writeToSignedUrl (url: string, header: any, content) {
-        logger.info(header)
-        logger.info(Buffer.concat(content).byteLength)
-
         const res = await fetch(url, {
             method: 'PUT',
             headers: {
@@ -550,37 +554,55 @@ class WebFileSystem extends webdav.FileSystem {
             })
         })
 
-        const data = await res.json()
+        return await res.json()
+    }
 
-        logger.info(data)
+    async processStream(path: Path, user: User, contents: Array<any>) {
+        let stream = new webdav.VirtualFileWritable(contents)
+
+        stream.on('finish', async () => {
+            const data = await this.requestSignedUrl(path, user)
+            await this.writeToSignedUrl(data.url, data.header, contents)
+            const file = await this.writeToFileStorage(path, user, data.header, contents)
+
+            const creationDate = new Date(file.createdAt)
+            const lastModifiedDate = new Date(file.updatedAt)
+            const permissions = this.populatePermissions(file.permissions, user)
+
+            this.resources.get(user.uid).set(path.toString(), {
+                type: webdav.ResourceType.File,
+                id: file._id,
+                size: file.size,
+                creationDate: creationDate.getTime(),
+                lastModifiedDate: lastModifiedDate.getTime(),
+                permissions
+            })
+        })
+
+        return stream
     }
 
     async _openWriteStream(path: Path, ctx: OpenWriteStreamInfo, callback: ReturnCallback<Writable>) {
         logger.info("Writing file: " + path)
 
         if (ctx.context.user) {
-            this.createUserFileSystem(ctx.context.user.uid)
-            if (this.resources.get(ctx.context.user.uid).has(path.toString())) {
-                // TODO: Get current content
-                let content = []
-                let stream = new webdav.VirtualFileWritable(content)
+            const user: User = <User> ctx.context.user
+            this.createUserFileSystem(user.uid)
 
-                stream.on('finish', async () => {
-                    const data = await this.requestSignedUrl(path, <User> ctx.context.user)
-                    await this.writeToSignedUrl(data.url, data.header, content)
-                    await this.writeToFileStorage(path, <User> ctx.context.user, data.header, content)
-                })
+            if (this.resources.get(user.uid).has(path.toString())) {
+                logger.info('Resource exists')
+                const url = this.retrieveSignedUrl(path, user)
+
+                const file = await fetch(url)
+                const buffer = await file.buffer()
+
+                const stream = await this.processStream(path, user, [ buffer ])
 
                 callback(null, stream)
             } else {
-                let content = []
-                let stream = new webdav.VirtualFileWritable(content)
+                logger.info('Resource doesn\'t exist')
 
-                stream.on('finish', async () => {
-                    const data = await this.requestSignedUrl(path, <User> ctx.context.user)
-                    await this.writeToSignedUrl(data.url, data.header, content)
-                    await this.writeToFileStorage(path, <User> ctx.context.user, data.header, content)
-                })
+                const stream = await this.processStream(path, user, [])
 
                 callback(null, stream)
             }
@@ -593,7 +615,7 @@ class WebFileSystem extends webdav.FileSystem {
         logger.info("Moving file: " + pathFrom + " --> " + pathTo)
 
         if (ctx.context.user) {
-            // TODO
+            // TODO (Apparently not possible with SC-API)
             callback(webdav.Errors.Forbidden)
         } else {
             callback(webdav.Errors.BadAuthentication)
