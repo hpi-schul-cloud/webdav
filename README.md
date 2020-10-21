@@ -40,3 +40,4 @@
 - [X] Delete Dir
 - [ ] Write Files
 - [ ] Populate Permissions directly on SC-server
+- [ ] Add Dockerfile
