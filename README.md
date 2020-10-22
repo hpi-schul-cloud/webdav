@@ -45,3 +45,4 @@
 - [ ] Handle shared files
 - [ ] Add Dockerfile
 - [ ] Correctly handle anonymous users
+- [ ] Add API req handler/helper
