@@ -115,6 +115,7 @@ class WebFileSystem extends webdav.FileSystem {
 
         const data = await res.json()
         for (const resource of data) {
+            // TODO: Check read permissions and handle accordingly
             this.addFileToResources(path.getChildPath(resource.name), user, resource)
         }
         return data.map((resource) => resource.name)
@@ -219,18 +220,25 @@ class WebFileSystem extends webdav.FileSystem {
         logger.info("Reading file: " + path)
 
         if (info.context.user) {
-            this.createUserFileSystem(info.context.user.uid)
-            const url = await this.retrieveSignedUrl(path, <User> info.context.user)
+            const user: User = <User> info.context.user
 
-            logger.info("Signed URL: " + url)
+            this.createUserFileSystem(user.uid)
 
-            // TODO: URL should be cached in resources (but needs to be renewed sometimes)
+            if (this.resources.get(user.uid).get(path.toString()).permissions.read) {
+                const url = await this.retrieveSignedUrl(path, user)
 
-            if (url) {
-                const file = await fetch(url)
-                const buffer = await file.buffer()
+                logger.info("Signed URL: " + url)
 
-                callback(null, new webdav.VirtualFileReadable([ buffer ]))
+                // TODO: URL should be cached in resources (but needs to be renewed sometimes)
+
+                if (url) {
+                    const file = await fetch(url)
+                    const buffer = await file.buffer()
+
+                    callback(null, new webdav.VirtualFileReadable([ buffer ]))
+                } else {
+                    callback(webdav.Errors.Forbidden)
+                }
             } else {
                 callback(webdav.Errors.Forbidden)
             }
@@ -364,6 +372,8 @@ class WebFileSystem extends webdav.FileSystem {
         const parent: string = this.resources.get(user.uid).get(path.getParent().toString()).id
         const contentType = mime.lookup(path.fileName()) || 'application/octet-stream'
 
+        // TODO: Handle permissions
+
         if (mime.extension(contentType) in ['docx', 'pptx', 'xlsx']) {
             const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories' : '/files/new'), {
                 method: 'POST',
@@ -400,14 +410,14 @@ class WebFileSystem extends webdav.FileSystem {
         logger.info("Creating resource: " + path)
 
         if (ctx.context.user) {
-            this.createUserFileSystem(ctx.context.user.uid)
-            if (this.resources.get(ctx.context.user.uid).has(path.getParent().toString())) {
-                const error = await this.createResource(path, <User> ctx.context.user, ctx.type)
-                callback(error)
+            const user: User = <User> ctx.context.user
+
+            this.createUserFileSystem(user.uid)
+            if (this.resources.get(user.uid).has(path.getParent().toString())) {
+                callback(await this.createResource(path, user, ctx.type))
             } else {
-                if (await this.loadPath(path.getParent(), <User> ctx.context.user)) {
-                    const error = await this.createResource(path, <User> ctx.context.user, ctx.type)
-                    callback(error)
+                if (await this.loadPath(path.getParent(), user)) {
+                    callback(await this.createResource(path, user, ctx.type))
                 } else {
                     callback(webdav.Errors.ResourceNotFound)
                 }
@@ -426,7 +436,7 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<Error>}   Error or null depending on success of deletion
      */
     async deleteResource (path: Path, user: User) : Promise<Error> {
-        if (this.resources.get(user.uid).get(path.toString()).permissions.delete) {
+        if (this.resources.get(user.uid).get(path.toString()).permissions?.delete) {
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
             const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories?_id=' : '?_id=') + this.resources.get(user.uid).get(path.toString()).id, {
                 method: 'DELETE',
@@ -453,12 +463,10 @@ class WebFileSystem extends webdav.FileSystem {
         if (ctx.context.user) {
             this.createUserFileSystem(ctx.context.user.uid)
             if (this.resources.get(ctx.context.user.uid).has(path.toString())) {
-                const error = await this.deleteResource(path, <User> ctx.context.user)
-                callback(error)
+                callback(await this.deleteResource(path, <User> ctx.context.user))
             } else {
                 if (await this.loadPath(path, <User> ctx.context.user)) {
-                    const error = await this.deleteResource(path, <User> ctx.context.user)
-                    callback(error)
+                    callback(await this.deleteResource(path, <User> ctx.context.user))
                 } else {
                     callback(webdav.Errors.ResourceNotFound)
                 }
@@ -484,8 +492,6 @@ class WebFileSystem extends webdav.FileSystem {
         const filename = path.fileName()
         const contentType = mime.lookup(filename) || 'application/octet-stream'
         const parent = this.resources.get(user.uid).get(path.getParent().toString()).id
-
-        // TODO: PATCH-Request if resource exists
 
         let res
         if (this.resources.get(user.uid).has(path.toString())) {
@@ -559,6 +565,7 @@ class WebFileSystem extends webdav.FileSystem {
 
         stream.on('finish', async () => {
             const data = await this.requestWritableSignedUrl(path, user)
+            logger.info(Buffer.concat(contents).toString())
             await this.writeToSignedUrl(data.url, data.header, contents)
 
             if (!this.resources.get(user.uid).has(path.toString())) {
@@ -581,21 +588,22 @@ class WebFileSystem extends webdav.FileSystem {
             this.createUserFileSystem(user.uid)
 
             if (this.resources.get(user.uid).has(path.toString())) {
-                logger.info('Resource exists')
-                const url = await this.retrieveSignedUrl(path, user)
+                if (this.resources.get(user.uid).get(path.toString()).permissions?.write) {
 
-                const file = await fetch(url)
-                const buffer = await file.buffer()
+                    // This part causes some problems by only appending to the content and not editing, so I will comment it for now (maybe it's not needed at all)
+                    /*
+                    const url = await this.retrieveSignedUrl(path, user)
 
-                const stream = await this.processStream(path, user, [ buffer ])
+                    const file = await fetch(url)
+                    const buffer = await file.buffer()
+                     */
 
-                callback(null, stream)
+                    callback(null, await this.processStream(path, user, [ ]))
+                } else {
+                    callback(webdav.Errors.Forbidden)
+                }
             } else {
-                logger.info('Resource doesn\'t exist')
-
-                const stream = await this.processStream(path, user, [])
-
-                callback(null, stream)
+                callback(null, await this.processStream(path, user, []))
             }
         } else {
             callback(webdav.Errors.BadAuthentication)
@@ -677,7 +685,7 @@ class WebFileSystem extends webdav.FileSystem {
             const user: User = <User> ctx.context.user;
 
             // renaming seems to be a move call in many clients but cannot be handled as such here:
-            if(pathFrom.fileName() !== pathTo.fileName()){
+            if(pathFrom.getParent().toString() === pathTo.getParent().toString() && pathFrom.fileName() !== pathTo.fileName()){
                 callback(await this.renameResource(pathFrom, user, pathTo.fileName()));
                 return;
             }
@@ -712,6 +720,9 @@ class WebFileSystem extends webdav.FileSystem {
      */
     async renameResource (path: Path, user: User, newName: string) : Promise<Error> {
         if (this.resources.get(user.uid).get(path.toString()).permissions.write) {
+
+            // TODO: Check new name for unallowed characters (for example question mark)
+
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
             const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories' : '') + '/rename', {
                 method: 'POST',
@@ -743,12 +754,10 @@ class WebFileSystem extends webdav.FileSystem {
         if (ctx.context.user) {
             this.createUserFileSystem(ctx.context.user.uid)
             if (this.resources.get(ctx.context.user.uid).has(pathFrom.toString())) {
-                const error = await this.renameResource(pathFrom, <User> ctx.context.user, newName)
-                callback(error)
+                callback(await this.renameResource(pathFrom, <User> ctx.context.user, newName))
             } else {
                 if (await this.loadPath(pathFrom, <User> ctx.context.user)) {
-                    const error = await this.renameResource(pathFrom, <User> ctx.context.user, newName)
-                    callback(error)
+                    callback(await this.renameResource(pathFrom, <User> ctx.context.user, newName))
                 } else {
                     callback(webdav.Errors.ResourceNotFound)
                 }
