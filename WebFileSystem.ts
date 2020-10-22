@@ -115,31 +115,7 @@ class WebFileSystem extends webdav.FileSystem {
 
         const data = await res.json()
         for (const resource of data) {
-            const creationDate = new Date(resource.createdAt)
-            const lastModifiedDate = new Date(resource.updatedAt)
-
-            const permissions = this.populatePermissions(resource.permissions, user)
-
-            /*
-            *   Could be simpler than current population strategy:
-            *
-            const permissionRes = await fetch(environment.BASE_URL + '/fileStorage/permission?file=' + resource._id, {
-                headers: {
-                    'Authorization': 'Bearer ' + user.jwt
-                }
-            })
-
-            logger.info(await permissionRes.json())
-             */
-
-            this.resources.get(user.uid).set(path.getChildPath(resource.name).toString(), {
-                type: resource.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
-                id: resource._id,
-                size: resource.size,
-                creationDate: creationDate.getTime(),
-                lastModifiedDate: lastModifiedDate.getTime(),
-                permissions
-            });
+            this.addFileToResources(path.getChildPath(resource.name), user, resource)
         }
         return data.map((resource) => resource.name)
     }
@@ -304,18 +280,20 @@ class WebFileSystem extends webdav.FileSystem {
     async _type(path: Path, info: TypeInfo, callback: ReturnCallback<ReturnType<any>>): Promise<void> {
         logger.info("Checking type: " + path)
 
-        if (info.context.user) {
+        // For guest users
+        if (!path.hasParent()) {
+            callback(null, webdav.ResourceType.Directory);
+        } else if (info.context.user) {
             const user: User = <User> info.context.user
             this.createUserFileSystem(user.uid)
 
-            if (!path.hasParent()) {
-                callback(null, webdav.ResourceType.Directory);
-            } else if (this.resources.get(user.uid).has(path.toString())) {
+            if (this.resources.get(user.uid).has(path.toString())) {
                 callback(null, this.resources.get(user.uid).get(path.toString()).type)
             } else {
                 if (await this.loadPath(path, user)) {
                     callback(null, this.resources.get(user.uid).get(path.toString()).type)
                 } else {
+                    logger.info('Resource not found!')
                     callback(webdav.Errors.ResourceNotFound)
                 }
             }
@@ -384,34 +362,36 @@ class WebFileSystem extends webdav.FileSystem {
     async createResource (path: Path, user: User, type: webdav.ResourceType) : Promise<Error> {
         const owner: string = this.resources.get(user.uid).get('/' + path.rootName()).id
         const parent: string = this.resources.get(user.uid).get(path.getParent().toString()).id
+        const contentType = mime.lookup(path.fileName()) || 'application/octet-stream'
 
-        // TODO: Manage permissions
-
-        const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories' : '/files/new'), {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + user.jwt,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: path.fileName(),
-                owner,
-                parent: (parent != owner) ? parent : undefined
+        if (mime.extension(contentType) in ['docx', 'pptx', 'xlsx']) {
+            const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories' : '/files/new'), {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + user.jwt,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: path.fileName(),
+                    owner,
+                    parent: (parent != owner) ? parent : undefined
+                })
             })
-        })
 
-        const data = await res.json()
+            const data = await res.json()
 
-        // TODO: Add file to resources
+            logger.info(data)
 
-        logger.info(data)
+            this.addFileToResources(path, user, data)
+        } else {
+            const data = await this.requestSignedUrl(path, user)
+            await this.writeToSignedUrl(data.url, data.header, [])
+            const file = await this.writeToFileStorage(path, user, data.header, [])
 
-        // TODO: Handle non Microsoft Office options (maybe we don't need that, because it seems to work without them)
-        /*
-        if (!data._id) {
-            return webdav.Errors.InvalidOperation
+            logger.info(file)
+
+            this.addFileToResources(path, user, file)
         }
-         */
 
         return null
     }
@@ -505,6 +485,8 @@ class WebFileSystem extends webdav.FileSystem {
         const contentType = mime.lookup(filename) || 'application/octet-stream'
         const parent = this.resources.get(user.uid).get(path.getParent().toString()).id
 
+        // TODO: PATCH-Request if resource exists
+
         const res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl', {
             method: 'POST',
             headers: {
@@ -565,18 +547,9 @@ class WebFileSystem extends webdav.FileSystem {
             await this.writeToSignedUrl(data.url, data.header, contents)
             const file = await this.writeToFileStorage(path, user, data.header, contents)
 
-            const creationDate = new Date(file.createdAt)
-            const lastModifiedDate = new Date(file.updatedAt)
-            const permissions = this.populatePermissions(file.permissions, user)
-
-            this.resources.get(user.uid).set(path.toString(), {
-                type: webdav.ResourceType.File,
-                id: file._id,
-                size: file.size,
-                creationDate: creationDate.getTime(),
-                lastModifiedDate: lastModifiedDate.getTime(),
-                permissions
-            })
+            if (!this.resources.get(user.uid).has(path.toString())) {
+                this.addFileToResources(path, user, file)
+            }
         })
 
         return stream
@@ -650,6 +623,33 @@ class WebFileSystem extends webdav.FileSystem {
      */
     getID(path: Path, user: User) : string{
         return this.resources.get(user.uid).get(path.toString()).id
+    }
+
+    addFileToResources (path: Path, user: User, file: any) {
+        const creationDate = new Date(file.createdAt)
+        const lastModifiedDate = new Date(file.updatedAt)
+        const permissions = this.populatePermissions(file.permissions, user)
+
+        /*
+        *   Could be simpler than current population strategy:
+        *
+           const permissionRes = await fetch(environment.BASE_URL + '/fileStorage/permission?file=' + resource._id, {
+               headers: {
+                   'Authorization': 'Bearer ' + user.jwt
+               }
+           })
+
+           logger.info(await permissionRes.json())
+        */
+
+        this.resources.get(user.uid).set(path.toString(), {
+            type: file.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
+            id: file._id,
+            size: file.size,
+            creationDate: creationDate.getTime(),
+            lastModifiedDate: lastModifiedDate.getTime(),
+            permissions
+        });
     }
 
     async _move(pathFrom: Path, pathTo: Path, ctx: MoveInfo, callback: ReturnCallback<boolean>): Promise<void> {
