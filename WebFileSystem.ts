@@ -565,6 +565,7 @@ class WebFileSystem extends webdav.FileSystem {
 
         stream.on('finish', async () => {
             const data = await this.requestWritableSignedUrl(path, user)
+            logger.info(Buffer.concat(contents).toString())
             await this.writeToSignedUrl(data.url, data.header, contents)
 
             if (!this.resources.get(user.uid).has(path.toString())) {
@@ -587,26 +588,22 @@ class WebFileSystem extends webdav.FileSystem {
             this.createUserFileSystem(user.uid)
 
             if (this.resources.get(user.uid).has(path.toString())) {
-                logger.info('Resource exists')
-
                 if (this.resources.get(user.uid).get(path.toString()).permissions?.write) {
+
+                    // This part causes some problems by only appending to the content and not editing, so I will comment it for now (maybe it's not needed at all)
+                    /*
                     const url = await this.retrieveSignedUrl(path, user)
 
                     const file = await fetch(url)
                     const buffer = await file.buffer()
+                     */
 
-                    const stream = await this.processStream(path, user, [ buffer ])
-
-                    callback(null, stream)
+                    callback(null, await this.processStream(path, user, [ ]))
                 } else {
                     callback(webdav.Errors.Forbidden)
                 }
             } else {
-                logger.info('Resource doesn\'t exist')
-
-                const stream = await this.processStream(path, user, [])
-
-                callback(null, stream)
+                callback(null, await this.processStream(path, user, []))
             }
         } else {
             callback(webdav.Errors.BadAuthentication)
@@ -723,6 +720,9 @@ class WebFileSystem extends webdav.FileSystem {
      */
     async renameResource (path: Path, user: User, newName: string) : Promise<Error> {
         if (this.resources.get(user.uid).get(path.toString()).permissions.write) {
+
+            // TODO: Check new name for unallowed characters (for example question mark)
+
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
             const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories' : '') + '/rename', {
                 method: 'POST',
