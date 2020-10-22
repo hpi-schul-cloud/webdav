@@ -39,6 +39,7 @@
 - [X] Delete Files
 - [X] Delete Dir
 - [x] Write Files
+- [ ] Error handling edge cases
 - [ ] Populate Permissions directly on SC-server
 - [ ] Handle teams data
 - [ ] handle my files
