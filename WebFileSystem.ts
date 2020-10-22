@@ -129,7 +129,8 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<string[]>}  List of courses
      */
     async loadCourses(user: User) : Promise<string[]> {
-        const res = await fetch(environment.BASE_URL + '/courses', {
+        const qs = `?$or[0][userIds]=${user.uid}&$or[1][teacherIds]=${user.uid}&$or[2][substiutionIds]=${user.uid}`;
+        const res = await fetch(`${environment.BASE_URL}/courses/${qs}`, {
             headers: {
                 'Authorization': 'Bearer ' + user.jwt
             }
