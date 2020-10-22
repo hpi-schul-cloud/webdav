@@ -384,7 +384,7 @@ class WebFileSystem extends webdav.FileSystem {
 
             this.addFileToResources(path, user, data)
         } else {
-            const data = await this.requestSignedUrl(path, user)
+            const data = await this.requestWritableSignedUrl(path, user)
             await this.writeToSignedUrl(data.url, data.header, [])
             const file = await this.writeToFileStorage(path, user, data.header, [])
 
@@ -480,28 +480,43 @@ class WebFileSystem extends webdav.FileSystem {
         return data.url
     }
 
-    async requestSignedUrl (path: Path, user: User): Promise<any> {
+    async requestWritableSignedUrl (path: Path, user: User): Promise<any> {
         const filename = path.fileName()
         const contentType = mime.lookup(filename) || 'application/octet-stream'
         const parent = this.resources.get(user.uid).get(path.getParent().toString()).id
 
         // TODO: PATCH-Request if resource exists
 
-        const res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl', {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + user.jwt,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                filename,
-                fileType: contentType,
-                parent: this.resources.get(user.uid).get('/' + path.rootName()).id != parent ? parent : undefined,
-                action: 'putObject'
+        let res
+        if (this.resources.get(user.uid).has(path.toString())) {
+            res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl/' + this.getID(path, user), {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': 'Bearer ' + user.jwt,
+                    'Content-Type': 'application/json'
+                }
             })
-        })
+        } else {
+            res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + user.jwt,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    filename,
+                    fileType: contentType,
+                    parent: this.resources.get(user.uid).get('/' + path.rootName()).id != parent ? parent : undefined,
+                    action: 'putObject'
+                })
+            })
+        }
 
-        return await res.json()
+        const data = await res.json()
+
+        logger.info(data)
+
+        return data
     }
 
     async writeToSignedUrl (url: string, header: any, content: Array<any>): Promise<void> {
@@ -543,12 +558,15 @@ class WebFileSystem extends webdav.FileSystem {
         const stream = new webdav.VirtualFileWritable(contents)
 
         stream.on('finish', async () => {
-            const data = await this.requestSignedUrl(path, user)
+            const data = await this.requestWritableSignedUrl(path, user)
             await this.writeToSignedUrl(data.url, data.header, contents)
-            const file = await this.writeToFileStorage(path, user, data.header, contents)
 
             if (!this.resources.get(user.uid).has(path.toString())) {
-                this.addFileToResources(path, user, file)
+                const file = await this.writeToFileStorage(path, user, data.header, contents)
+
+                if (!this.resources.get(user.uid).has(path.toString())) {
+                    this.addFileToResources(path, user, file)
+                }
             }
         })
 
