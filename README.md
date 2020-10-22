@@ -38,10 +38,10 @@
 - [x] Move Dir 
 - [X] Delete Files
 - [X] Delete Dir
-- [ ] Write Files
+- [x] Write Files
 - [ ] Populate Permissions directly on SC-server
 - [ ] Handle teams data
 - [ ] handle my files
 - [ ] Handle shared files
 - [ ] Add Dockerfile
-- [ ] Make it work on OS X (currently the top level folders are shown as executables)
+- [ ] Correctly handle anonymous users
