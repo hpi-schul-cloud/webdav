@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "start": "tsc && node index.js",
-    "lint": "eslint ."
+    "lint": "eslint . --ext .ts"
   },
   "dependencies": {
     "dotenv": "^8.2.0",

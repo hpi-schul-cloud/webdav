@@ -67,7 +67,7 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {any}  Permission object containing write, read, create and delete permissions
      */
     populatePermissions(permissions: Array<any>, user: User): any {
-        let filePermissions = {
+        const filePermissions = {
             write: false,
             read: false,
             create: false,
@@ -177,7 +177,7 @@ class WebFileSystem extends webdav.FileSystem {
      *
      * @return {Promise<Boolean>}   Returns whether the path exists
      */
-    async loadPath(path: Path, user: User) : Promise<Boolean> {
+    async loadPath(path: Path, user: User) : Promise<boolean> {
         await this.loadCourses(user)
         let currentPath = path.getParent()
         while (!this.resources.get(user.uid).has(path.toString())) {
@@ -233,7 +233,7 @@ class WebFileSystem extends webdav.FileSystem {
      * @param {string} uid   User-ID of the logged in user
      *
      */
-    createUserFileSystem(uid: string) {
+    createUserFileSystem(uid: string): void {
         if (!this.resources.has(uid)) {
             this.resources.set(uid, new Map())
         }
@@ -324,7 +324,7 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
-    async _size(path: Path, ctx: SizeInfo, callback: ReturnCallback<number>) {
+    async _size(path: Path, ctx: SizeInfo, callback: ReturnCallback<number>): Promise<void> {
         logger.info("Checking size: " + path);
 
         if (ctx.context.user) {
@@ -340,7 +340,7 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
-    async _creationDate(path: Path, ctx: CreationDateInfo, callback: ReturnCallback<number>) {
+    async _creationDate(path: Path, ctx: CreationDateInfo, callback: ReturnCallback<number>): Promise<void> {
         logger.info("Checking creation date: " + path);
 
         if (ctx.context.user) {
@@ -356,7 +356,7 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
-    async _lastModifiedDate(path: Path, ctx: LastModifiedDateInfo, callback: ReturnCallback<number>) {
+    async _lastModifiedDate(path: Path, ctx: LastModifiedDateInfo, callback: ReturnCallback<number>): Promise<void> {
         logger.info("Checking last modified date: " + path);
 
         if (ctx.context.user) {
@@ -416,7 +416,7 @@ class WebFileSystem extends webdav.FileSystem {
         return null
     }
 
-    async _create(path: Path, ctx: CreateInfo, callback: SimpleCallback) {
+    async _create(path: Path, ctx: CreateInfo, callback: SimpleCallback): Promise<void> {
         logger.info("Creating resource: " + path)
 
         if (ctx.context.user) {
@@ -467,7 +467,7 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
-    async _delete(path: Path, ctx: DeleteInfo, callback: SimpleCallback) {
+    async _delete(path: Path, ctx: DeleteInfo, callback: SimpleCallback): Promise<void> {
         logger.info("Deleting resource: " + path)
 
         if (ctx.context.user) {
@@ -496,11 +496,11 @@ class WebFileSystem extends webdav.FileSystem {
         })
 
         const data = await res.json()
-        
+
         return data.url
     }
 
-    async requestSignedUrl (path: Path, user: User) {
+    async requestSignedUrl (path: Path, user: User): Promise<any> {
         const filename = path.fileName()
         const contentType = mime.lookup(filename) || 'application/octet-stream'
         const parent = this.resources.get(user.uid).get(path.getParent().toString()).id
@@ -522,8 +522,8 @@ class WebFileSystem extends webdav.FileSystem {
         return await res.json()
     }
 
-    async writeToSignedUrl (url: string, header: any, content) {
-        const res = await fetch(url, {
+    async writeToSignedUrl (url: string, header: any, content: Array<any>): Promise<void> {
+        await fetch(url, {
             method: 'PUT',
             headers: {
                 ...header
@@ -532,7 +532,7 @@ class WebFileSystem extends webdav.FileSystem {
         })
     }
 
-    async writeToFileStorage (path: Path, user: User, header, content) {
+    async writeToFileStorage (path: Path, user: User, header: any, content: Array<any>): Promise<any> {
         const owner = this.resources.get(user.uid).get('/' + path.rootName()).id
         const parent = this.resources.get(user.uid).get(path.getParent().toString()).id
         const type = mime.lookup(path.fileName()) || 'application/octet-stream'
@@ -557,8 +557,8 @@ class WebFileSystem extends webdav.FileSystem {
         return await res.json()
     }
 
-    async processStream(path: Path, user: User, contents: Array<any>) {
-        let stream = new webdav.VirtualFileWritable(contents)
+    processStream(path: Path, user: User, contents: Array<any>): webdav.VirtualFileWritable {
+        const stream = new webdav.VirtualFileWritable(contents)
 
         stream.on('finish', async () => {
             const data = await this.requestSignedUrl(path, user)
@@ -582,7 +582,7 @@ class WebFileSystem extends webdav.FileSystem {
         return stream
     }
 
-    async _openWriteStream(path: Path, ctx: OpenWriteStreamInfo, callback: ReturnCallback<Writable>) {
+    async _openWriteStream(path: Path, ctx: OpenWriteStreamInfo, callback: ReturnCallback<Writable>): Promise<void> {
         logger.info("Writing file: " + path)
 
         if (ctx.context.user) {
@@ -614,14 +614,14 @@ class WebFileSystem extends webdav.FileSystem {
     /*
      * Moves File to new Folder
      *
-     * @param {string} ressourceID      ID of the resource
+     * @param {string} resourceID      ID of the resource
      * @param {string} newParentID      ID of the new Parent
      * @param {User} user               Current user
      *
      * @return {Promise<Error>}   Error or null depending on success of moving
      */
-    async moveRessource(ressourceID: string, newParentID: string, user: User) : Promise<Error> {
-        return await fetch(`${environment.BASE_URL}/fileStorage/${ressourceID}`,{
+    async moveResource(resourceID: string, newParentID: string, user: User) : Promise<Error> {
+        return await fetch(`${environment.BASE_URL}/fileStorage/${resourceID}`,{
             method: 'PATCH',
             headers: {
                 'Authorization': 'Bearer ' + user.jwt,
@@ -634,55 +634,50 @@ class WebFileSystem extends webdav.FileSystem {
             //TODO: some error handling?
             return null
         }).catch(() => {
-            logger.error('File at moveRessource() could not be moved', user.uid,ressourceID,newParentID);
+            logger.error('File at moveResource() could not be moved', user.uid,resourceID,newParentID);
             return webdav.Errors.Forbidden
         } )
     }
-    
+
     /*
-     * Gets ID by path and user. 
-     * ! Assumes that ressource is loaded in this.ressource ! 
+     * Gets ID by path and user.
+     * ! Assumes that resource is loaded in this.resource !
      *
      * @param {string} path         Path to resource
      * @param {User} user           Current user
      *
      * @return {string}   ID of resource
      */
-    getID(path: string, user: User) : string{
+    getID(path: Path, user: User) : string{
         return this.resources.get(user.uid).get(path.toString()).id
     }
 
-    async _move(pathFrom: Path, pathTo: Path, ctx: MoveInfo, callback: ReturnCallback<boolean>) {
+    async _move(pathFrom: Path, pathTo: Path, ctx: MoveInfo, callback: ReturnCallback<boolean>): Promise<void> {
         logger.info("Moving file: " + pathFrom + " --> " + pathTo)
 
         if (ctx.context.user) {
             const user: User = <User> ctx.context.user;
 
             // renaming seems to be a move call in many clients but cannot be handled as such here:
-            if(pathFrom.toString().split('/').pop() !== pathTo.toString().split('/').pop()){
-                callback(await this.renameResource(pathFrom, user, pathTo.toString().split('/').pop()));
+            if(pathFrom.fileName() !== pathTo.fileName()){
+                callback(await this.renameResource(pathFrom, user, pathTo.fileName()));
                 return;
-            }            
-            
-            if (await !this.loadPath(pathFrom, user) || await !this.loadPath(pathTo, user)){
+            }
+
+            if (!await this.loadPath(pathFrom, user) || !await this.loadPath(pathTo, user)){
                 callback(webdav.Errors.ResourceNotFound);
                 return ;
             }
 
-            const fileID: string = this.getID(pathFrom.toString(), user);
-
-            const toParrentArray = pathTo.toString().split('/')
-            toParrentArray.pop()
-            if(toParrentArray.length < 1){
+            if(!pathTo.hasParent()){
                 callback(webdav.Errors.Forbidden);
                 return;
             }
-            const toParentPath = toParrentArray.join('/')
 
-            const toParentID: string = this.getID(toParentPath, user);
+            const fileID: string = this.getID(pathFrom, user);
+            const toParentID: string = this.getID(pathTo.getParent(), user);
 
-            callback(await this.moveRessource(fileID, toParentID, user))
-
+            callback(await this.moveResource(fileID, toParentID, user))
         } else {
             callback(webdav.Errors.BadAuthentication)
         }
@@ -718,13 +713,13 @@ class WebFileSystem extends webdav.FileSystem {
             }else{
                 logger.error(res)
                 return webdav.Errors.InvalidOperation
-            }    
+            }
         } else {
             return webdav.Errors.Forbidden
         }
     }
 
-   async _rename(pathFrom: Path, newName: string, ctx: RenameInfo, callback: ReturnCallback<boolean>) {
+   async _rename(pathFrom: Path, newName: string, ctx: RenameInfo, callback: ReturnCallback<boolean>): Promise<void> {
         logger.info("Renaming file: " + pathFrom + " --> " + newName)
 
         if (ctx.context.user) {
