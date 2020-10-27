@@ -1,5 +1,7 @@
 # webdav_experiment
 
+This POC / MVP aims at integrating Files and Folders into other clouds or to have offline synchronsation available. It will also allow us to build our futiure frontend using webdav instead of custpm APIs.
+
 ![Demo](demo.gif)
 
 ## Installation
