@@ -43,8 +43,8 @@ This POC / MVP aims at integrating Files and Folders into other clouds or to hav
 - [x] Write Files
 - [ ] Error handling edge cases
 - [ ] Populate Permissions directly on SC-server
-- [ ] Handle teams data
-- [ ] handle my files
+- [X] Handle teams data
+- [X] handle my files
 - [ ] Handle shared files
 - [ ] Add Dockerfile
 - [ ] Correctly handle anonymous users

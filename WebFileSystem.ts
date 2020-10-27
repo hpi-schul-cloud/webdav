@@ -390,7 +390,7 @@ class WebFileSystem extends webdav.FileSystem {
         logger.info("Checking type: " + path)
 
         // For guest users
-        if (!path.hasParent()) {
+        if (path.isRoot()) {
             callback(null, webdav.ResourceType.Directory);
         } else if (info.context.user) {
             const user: User = <User> info.context.user
@@ -468,24 +468,35 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<Error>}   Error or null depending on success of creation
      */
     async createResource (path: Path, user: User, type: webdav.ResourceType) : Promise<Error> {
-        const owner: string = this.resources.get(user.uid).get('/' + path.rootName()).id
-        const parent: string = this.resources.get(user.uid).get(path.getParent().toString()).id
-        const contentType = mime.lookup(path.fileName()) || 'application/octet-stream'
-
         // TODO: Handle permissions
 
-        if (type.isDirectory || mime.extension(contentType) in ['docx', 'pptx', 'xlsx']) {
+        if (type.isDirectory || mime.extension(mime.lookup(path.fileName())) in ['docx', 'pptx', 'xlsx']) {
+            let owner
+            let parent
+            if (this.rootPath === 'my') {
+                owner = user.uid
+                parent = this.resources.get(user.uid).has(path.getParent().toString()) ? this.resources.get(user.uid).get(path.getParent().toString()).id : user.uid
+            } else {
+                owner = this.resources.get(user.uid).get('/' + path.rootName()).id;
+                parent = this.resources.get(user.uid).get(path.getParent().toString()).id;
+            }
+
+            const body = {
+                name: path.fileName(),
+                parent: (parent != owner) ? parent : undefined
+            }
+
+            if (owner !== user.uid) {
+                body['owner'] = owner
+            }
+
             const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories' : '/files/new'), {
                 method: 'POST',
                 headers: {
                     'Authorization': 'Bearer ' + user.jwt,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    name: path.fileName(),
-                    owner,
-                    parent: (parent != owner) ? parent : undefined
-                })
+                body: JSON.stringify(body)
             })
 
             const data = await res.json()
@@ -513,7 +524,14 @@ class WebFileSystem extends webdav.FileSystem {
             const user: User = <User> ctx.context.user
 
             this.createUserFileSystem(user.uid)
-            if (this.resources.get(user.uid).has(path.getParent().toString())) {
+
+            if (!path.hasParent()) {
+                if (this.rootPath === 'my') {
+                    callback(await this.createResource(path, user, ctx.type))
+                } else {
+                    callback(webdav.Errors.Forbidden)
+                }
+            } else if (this.resources.get(user.uid).has(path.getParent().toString())) {
                 callback(await this.createResource(path, user, ctx.type))
             } else {
                 if (await this.loadPath(path.getParent(), user)) {
@@ -642,8 +660,16 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<any>}   File Object of the new file
      */
     async writeToFileStorage (path: Path, user: User, header: any, content: Array<any>): Promise<any> {
-        const owner = this.resources.get(user.uid).get('/' + path.rootName()).id
-        const parent = this.resources.get(user.uid).get(path.getParent().toString()).id
+        let owner
+        let parent
+        if (this.rootPath === 'my') {
+            owner = user.uid
+            parent = this.resources.get(user.uid).has(path.getParent().toString()) ? this.resources.get(user.uid).get(path.getParent().toString()).id : user.uid
+        } else {
+            owner = this.resources.get(user.uid).get('/' + path.rootName()).id;
+            parent = this.resources.get(user.uid).get(path.getParent().toString()).id;
+        }
+
         const type = mime.lookup(path.fileName()) || 'application/octet-stream'
 
         const res = await fetch(environment.BASE_URL + '/fileStorage', {
