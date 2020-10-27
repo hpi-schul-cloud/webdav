@@ -1,6 +1,6 @@
 # webdav_experiment
 
-This POC / MVP aims at integrating Files and Folders into other clouds or to have offline synchronsation available. It will also allow us to build our futiure frontend using webdav instead of custpm APIs.
+This POC / MVP aims at integrating Files and Folders into other clouds or to have offline synchronsation available. It will also allow us to build our future frontend using webdav protocol instead of custom APIs.
 
 ![Demo](demo.gif)
 
@@ -32,7 +32,7 @@ This POC / MVP aims at integrating Files and Folders into other clouds or to hav
 - [ ] NextCloud / OwnCloud server info
 - [X] Handle Permissions
 - [x] Handle available metadata
-- [ ] Have updatetAt available on directories (must be done in SC Server)
+- [ ] Have updatetAt available on directories (must be done in SC Server, thsi will require performant handling or different data schemas, like storing all parents on files an folders)
 - [X] Create Files
 - [X] Create Dirs
 - [x] Upload Files
