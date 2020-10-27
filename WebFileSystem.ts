@@ -372,7 +372,6 @@ class WebFileSystem extends webdav.FileSystem {
                 if (await this.loadPath(path, user)) {
                     callback(null, this.resources.get(user.uid).get(path.toString()).type)
                 } else {
-                    logger.info('Resource not found!')
                     callback(webdav.Errors.ResourceNotFound)
                 }
             }
@@ -445,7 +444,7 @@ class WebFileSystem extends webdav.FileSystem {
 
         // TODO: Handle permissions
 
-        if (mime.extension(contentType) in ['docx', 'pptx', 'xlsx']) {
+        if (type.isDirectory || mime.extension(contentType) in ['docx', 'pptx', 'xlsx']) {
             const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories' : '/files/new'), {
                 method: 'POST',
                 headers: {
@@ -731,20 +730,20 @@ class WebFileSystem extends webdav.FileSystem {
         if (ctx.context.user) {
             const user: User = <User> ctx.context.user;
 
+            if(!pathTo.hasParent()){
+                callback(webdav.Errors.Forbidden);
+                return;
+            }
+
             // renaming seems to be a move call in many clients but cannot be handled as such here:
             if(pathFrom.getParent().toString() === pathTo.getParent().toString() && pathFrom.fileName() !== pathTo.fileName()){
                 callback(await this.renameResource(pathFrom, user, pathTo.fileName()));
                 return;
             }
 
-            if (!await this.loadPath(pathFrom, user) || !await this.loadPath(pathTo, user)){
+            if (!await this.loadPath(pathFrom, user) || !await this.loadPath(pathTo.getParent(), user)){
                 callback(webdav.Errors.ResourceNotFound);
                 return ;
-            }
-
-            if(!pathTo.hasParent()){
-                callback(webdav.Errors.Forbidden);
-                return;
             }
 
             const fileID: string = this.getID(pathFrom, user);
