@@ -76,35 +76,37 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<string[]>}  List of root directories
      */
     async loadRootDirectories(user: User) : Promise<string[]> {
-        let qs
-        let url
-        switch (this.rootPath) {
-            case 'courses':
-                qs = `?$or[0][userIds]=${user.uid}&$or[1][teacherIds]=${user.uid}&$or[2][substiutionIds]=${user.uid}`;
-                url = `${environment.BASE_URL}/courses/${qs}`
-                break
-            case 'teams':
-                url = `${environment.BASE_URL}/teams`
-                break
-            default:
-                return []
-        }
-
-        const res = await fetch(url, {
-            headers: {
-                'Authorization': 'Bearer ' + user.jwt
+        if (this.rootPath !== 'my') {
+            let qs
+            let url
+            switch (this.rootPath) {
+                case 'courses':
+                    qs = `?$or[0][userIds]=${user.uid}&$or[1][teacherIds]=${user.uid}&$or[2][substiutionIds]=${user.uid}`;
+                    url = `${environment.BASE_URL}/courses/${qs}`
+                    break
+                case 'teams':
+                    url = `${environment.BASE_URL}/teams`
+                    break
+                default:
+                    return []
             }
-        })
-        const data = await res.json()
 
-        for (const directory of data['data']) {
-            this.resources.get(user.uid).set(new Path([directory.name]).toString(), {
-                type: webdav.ResourceType.Directory,
-                id: directory._id
-            });
+            const res = await fetch(url, {
+                headers: {
+                    'Authorization': 'Bearer ' + user.jwt
+                }
+            })
+            const data = await res.json()
+
+            for (const directory of data['data']) {
+                this.resources.get(user.uid).set(new Path([directory.name]).toString(), {
+                    type: webdav.ResourceType.Directory,
+                    id: directory._id
+                });
+            }
+
+            return data['data'].map((directory) => directory.name)
         }
-
-        return data['data'].map((directory) => directory.name)
     }
 
     /*
@@ -153,15 +155,17 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<string[]>}  List of resources in directory
      */
     async loadDirectory (path: Path, user: User) : Promise<string[]> {
-        let rootID
+        let ownerID
+        let parentID
         if (this.rootPath === 'my') {
-            rootID = user.uid
+            ownerID = user.uid
+            parentID = this.resources.get(user.uid).has(path.toString()) ? this.resources.get(user.uid).get(path.toString()).id : user.uid
         } else {
-            rootID = this.resources.get(user.uid).get('/' + path.rootName()).id;
+            ownerID = this.resources.get(user.uid).get('/' + path.rootName()).id;
+            parentID = this.resources.get(user.uid).get(path.toString()).id;
         }
-        const parentID = this.resources.get(user.uid).get(path.toString()).id;
 
-        const res = await fetch(environment.BASE_URL + '/fileStorage?owner=' + rootID + (parentID != rootID ? '&parent=' + parentID : ''), {
+        const res = await fetch(environment.BASE_URL + '/fileStorage?owner=' + ownerID + (parentID != ownerID ? '&parent=' + parentID : ''), {
             headers: {
                 'Authorization': 'Bearer ' + user.jwt
             }
@@ -353,17 +357,22 @@ class WebFileSystem extends webdav.FileSystem {
         logger.info("Reading dir: " + path)
 
         if (info.context.user) {
-            this.createUserFileSystem(info.context.user.uid)
-            if (path.isRoot() && this.rootPath !== 'my') {
-                callback(null, await this.loadRootDirectories(<User>info.context.user))
+            const user: User = <User> info.context.user
+            this.createUserFileSystem(user.uid)
+            if (path.isRoot()) {
+                if (this.rootPath === 'my') {
+                    callback(null, await this.loadDirectory(path, user))
+                } else {
+                    callback(null, await this.loadRootDirectories(user))
+                }
             } else {
-                if (this.resources.get(info.context.user.uid).has(path.toString())) {
-                    const resources = await this.loadDirectory(path, <User>info.context.user)
+                if (this.resources.get(user.uid).has(path.toString())) {
+                    const resources = await this.loadDirectory(path, user)
 
                     callback(null, resources)
                 } else {
-                    if (await this.loadPath(path, <User>info.context.user)) {
-                        const resources = await this.loadDirectory(path, <User>info.context.user)
+                    if (await this.loadPath(path, user)) {
+                        const resources = await this.loadDirectory(path, user)
 
                         callback(null, resources)
                     } else {
