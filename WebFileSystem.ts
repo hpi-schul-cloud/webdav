@@ -69,6 +69,45 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
+     * Loads the root directories of the user
+     *
+     * @param {User} user   Current user
+     *
+     * @return {Promise<string[]>}  List of root directories
+     */
+    async loadRootDirectories(user: User) : Promise<string[]> {
+        let qs
+        let url
+        switch (this.rootPath) {
+            case 'courses':
+                qs = `?$or[0][userIds]=${user.uid}&$or[1][teacherIds]=${user.uid}&$or[2][substiutionIds]=${user.uid}`;
+                url = `${environment.BASE_URL}/courses/${qs}`
+                break
+            case 'teams':
+                url = `${environment.BASE_URL}/teams`
+                break
+            default:
+                return []
+        }
+
+        const res = await fetch(url, {
+            headers: {
+                'Authorization': 'Bearer ' + user.jwt
+            }
+        })
+        const data = await res.json()
+
+        for (const directory of data['data']) {
+            this.resources.get(user.uid).set(new Path([directory.name]).toString(), {
+                type: webdav.ResourceType.Directory,
+                id: directory._id
+            });
+        }
+
+        return data['data'].map((directory) => directory.name)
+    }
+
+    /*
      * Populates permissions by combining user and roles permissions
      *
      * @param {Array<any>} permissions   Permissions of one file or directory
@@ -114,7 +153,12 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<string[]>}  List of resources in directory
      */
     async loadDirectory (path: Path, user: User) : Promise<string[]> {
-        const rootID = this.resources.get(user.uid).get('/' + path.rootName()).id;
+        let rootID
+        if (this.rootPath === 'my') {
+            rootID = user.uid
+        } else {
+            rootID = this.resources.get(user.uid).get('/' + path.rootName()).id;
+        }
         const parentID = this.resources.get(user.uid).get(path.toString()).id;
 
         const res = await fetch(environment.BASE_URL + '/fileStorage?owner=' + rootID + (parentID != rootID ? '&parent=' + parentID : ''), {
@@ -132,45 +176,6 @@ class WebFileSystem extends webdav.FileSystem {
             this.addFileToResources(path.getChildPath(resource.name), user, resource)
         }
         return data.map((resource) => resource.name)
-    }
-
-    /*
-     * Loads the root directories of the user
-     *
-     * @param {User} user   Current user
-     *
-     * @return {Promise<string[]>}  List of root directories
-     */
-    async loadRootDirectories(user: User) : Promise<string[]> {
-        let qs
-        let url
-        switch (this.rootPath) {
-            case 'courses':
-                qs = `?$or[0][userIds]=${user.uid}&$or[1][teacherIds]=${user.uid}&$or[2][substiutionIds]=${user.uid}`;
-                url = `${environment.BASE_URL}/courses/${qs}`
-                break
-            case 'teams':
-                url = `${environment.BASE_URL}/teams`
-                break
-            default:
-                return []
-        }
-
-        const res = await fetch(url, {
-            headers: {
-                'Authorization': 'Bearer ' + user.jwt
-            }
-        })
-        const data = await res.json()
-
-        for (const directory of data['data']) {
-            this.resources.get(user.uid).set(new Path([directory.name]).toString(), {
-                type: webdav.ResourceType.Directory,
-                id: directory.id
-            });
-        }
-
-        return data['data'].map((directory) => directory.name)
     }
 
     /*
@@ -349,7 +354,7 @@ class WebFileSystem extends webdav.FileSystem {
 
         if (info.context.user) {
             this.createUserFileSystem(info.context.user.uid)
-            if (path.isRoot()) {
+            if (path.isRoot() && this.rootPath !== 'my') {
                 callback(null, await this.loadRootDirectories(<User>info.context.user))
             } else {
                 if (this.resources.get(info.context.user.uid).has(path.toString())) {
