@@ -47,15 +47,15 @@ class WebFileSystem extends webdav.FileSystem {
     props: webdav.IPropertyManager;
     locks: webdav.ILockManager;
     resources: Map<string, Map<string, any>>
+    rootPath: string
 
-    // TODO: add parameter to switch between 'courses', 'my files', and 'teams'
-
-    constructor () {
+    constructor (rootPath?: string) {
         super(new WebFileSystemSerializer());
 
         this.props = new webdav.LocalPropertyManager();
         this.locks = new webdav.LocalLockManager();
         this.resources = new Map();
+        this.rootPath = rootPath ? rootPath : 'courses'
     }
 
     _propertyManager (path: Path, info: PropertyManagerInfo, callback: ReturnCallback<IPropertyManager>) : void {
@@ -124,6 +124,9 @@ class WebFileSystem extends webdav.FileSystem {
         })
 
         const data = await res.json()
+
+        logger.info(data)
+
         for (const resource of data) {
             // TODO: Check read permissions and handle accordingly
             this.addFileToResources(path.getChildPath(resource.name), user, resource)
@@ -132,29 +135,42 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
-     * Loads the courses of the user
+     * Loads the root directories of the user
      *
      * @param {User} user   Current user
      *
-     * @return {Promise<string[]>}  List of courses
+     * @return {Promise<string[]>}  List of root directories
      */
-    async loadCourses(user: User) : Promise<string[]> {
-        const qs = `?$or[0][userIds]=${user.uid}&$or[1][teacherIds]=${user.uid}&$or[2][substiutionIds]=${user.uid}`;
-        const res = await fetch(`${environment.BASE_URL}/courses/${qs}`, {
+    async loadRootDirectories(user: User) : Promise<string[]> {
+        let qs
+        let url
+        switch (this.rootPath) {
+            case 'courses':
+                qs = `?$or[0][userIds]=${user.uid}&$or[1][teacherIds]=${user.uid}&$or[2][substiutionIds]=${user.uid}`;
+                url = `${environment.BASE_URL}/courses/${qs}`
+                break
+            case 'teams':
+                url = `${environment.BASE_URL}/teams`
+                break
+            default:
+                return []
+        }
+
+        const res = await fetch(url, {
             headers: {
                 'Authorization': 'Bearer ' + user.jwt
             }
         })
         const data = await res.json()
 
-        for (const course of data['data']) {
-            this.resources.get(user.uid).set(new Path([course.name]).toString(), {
+        for (const directory of data['data']) {
+            this.resources.get(user.uid).set(new Path([directory.name]).toString(), {
                 type: webdav.ResourceType.Directory,
-                id: course.id
+                id: directory.id
             });
         }
 
-        return data['data'].map((course) => course.name)
+        return data['data'].map((directory) => directory.name)
     }
 
     /*
@@ -166,7 +182,7 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<Boolean>}   Returns whether the path exists
      */
     async loadPath(path: Path, user: User) : Promise<boolean> {
-        await this.loadCourses(user)
+        await this.loadRootDirectories(user)
         let currentPath = path.getParent()
         while (!this.resources.get(user.uid).has(path.toString())) {
             if (this.resources.get(user.uid).has(currentPath.toString())) {
@@ -334,7 +350,7 @@ class WebFileSystem extends webdav.FileSystem {
         if (info.context.user) {
             this.createUserFileSystem(info.context.user.uid)
             if (path.isRoot()) {
-                callback(null, await this.loadCourses(<User>info.context.user))
+                callback(null, await this.loadRootDirectories(<User>info.context.user))
             } else {
                 if (this.resources.get(info.context.user.uid).has(path.toString())) {
                     const resources = await this.loadDirectory(path, <User>info.context.user)

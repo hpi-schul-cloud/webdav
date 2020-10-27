@@ -14,19 +14,19 @@ const server = new webdav.WebDAVServer({
     httpAuthentication: new webdav.HTTPBasicAuthentication(userManager)
 });
 
-server.setFileSystem('courses', new WebFileSystem(), (succeeded) => {
+server.setFileSystem('courses', new WebFileSystem('courses'), (succeeded) => {
     if (succeeded) {
         logger.info("Successfully mounted 'courses' file system!")
     }
 });
 
-server.setFileSystem('my', new WebFileSystem(), (succeeded) => {
+server.setFileSystem('my', new WebFileSystem('my'), (succeeded) => {
     if (succeeded) {
         logger.info("Successfully mounted 'my files' file system!")
     }
 });
 
-server.setFileSystem('teams', new WebFileSystem(), (succeeded) => {
+server.setFileSystem('teams', new WebFileSystem('teams'), (succeeded) => {
     if (succeeded) {
         logger.info("Successfully mounted 'teams' file system!")
     }
