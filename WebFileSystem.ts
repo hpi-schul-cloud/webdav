@@ -58,6 +58,16 @@ class WebFileSystem extends webdav.FileSystem {
         this.resources = new Map();
     }
 
+    _propertyManager (path: Path, info: PropertyManagerInfo, callback: ReturnCallback<IPropertyManager>) : void {
+        logger.info("Calling Property Manager: " + path)
+        callback(null, this.props)
+    }
+
+    _lockManager (path: Path, info:LockManagerInfo, callback:ReturnCallback<ILockManager>) : void {
+        logger.info("Calling Lock Manager: " + path)
+        callback(null, this.locks)
+    }
+
     /*
      * Populates permissions by combining user and roles permissions
      *
@@ -217,6 +227,76 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
+    /*
+     * Gets ID by path and user.
+     * ! Assumes that resource is loaded in this.resource !
+     *
+     * @param {Path} path         Path to resource
+     * @param {User} user           Current user
+     *
+     * @return {string}   ID of resource
+     */
+    getID(path: Path, user: User) : string{
+        return this.resources.get(user.uid).get(path.toString()).id
+    }
+
+    /*
+     * Adds a file object returned by SC-Server to this.resources
+     *
+     * @param {Path} path         Path to resource
+     * @param {User} user           Current user
+     * @param {any} file           File JSON-Object returned by server
+     *
+     */
+    addFileToResources (path: Path, user: User, file: any): void {
+        const creationDate = new Date(file.createdAt)
+        const lastModifiedDate = new Date(file.updatedAt)
+        const permissions = this.populatePermissions(file.permissions, user)
+
+        /*
+        *   Could be simpler than current population strategy:
+        *
+           const permissionRes = await fetch(environment.BASE_URL + '/fileStorage/permission?file=' + resource._id, {
+               headers: {
+                   'Authorization': 'Bearer ' + user.jwt
+               }
+           })
+
+           logger.info(await permissionRes.json())
+        */
+
+        this.resources.get(user.uid).set(path.toString(), {
+            type: file.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
+            id: file._id,
+            size: file.size,
+            creationDate: creationDate.getTime(),
+            lastModifiedDate: lastModifiedDate.getTime(),
+            permissions
+        });
+    }
+
+    /*
+     * Retrieves a download-URL of an existing S3-file
+     *
+     * @param {Path} path               Path to resource
+     * @param {User} user               Current user
+     * @param {User} user               Current user
+     * @param {Array<any>} contents     Contents of stream
+     *
+     * @return {webdav.VirtualFileWritable}   Writable stream
+     */
+    async retrieveSignedUrl (path: Path, user: User): Promise<string> {
+        const res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl?file=' + this.resources.get(user.uid).get(path.toString()).id, {
+            headers: {
+                'Authorization': 'Bearer ' + user.jwt
+            }
+        })
+
+        const data = await res.json()
+
+        return data.url
+    }
+
     async _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : Promise<void> {
         logger.info("Reading file: " + path)
 
@@ -274,16 +354,6 @@ class WebFileSystem extends webdav.FileSystem {
         } else {
             callback(webdav.Errors.BadAuthentication)
         }
-    }
-
-    _propertyManager (path: Path, info: PropertyManagerInfo, callback: ReturnCallback<IPropertyManager>) : void {
-        logger.info("Calling Property Manager: " + path)
-        callback(null, this.props)
-    }
-
-    _lockManager (path: Path, info:LockManagerInfo, callback:ReturnCallback<ILockManager>) : void {
-        logger.info("Calling Lock Manager: " + path)
-        callback(null, this.locks)
     }
 
     async _type(path: Path, info: TypeInfo, callback: ReturnCallback<ReturnType<any>>): Promise<void> {
@@ -477,18 +547,14 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
-    async retrieveSignedUrl (path: Path, user: User): Promise<string> {
-        const res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl?file=' + this.resources.get(user.uid).get(path.toString()).id, {
-            headers: {
-                'Authorization': 'Bearer ' + user.jwt
-            }
-        })
-
-        const data = await res.json()
-
-        return data.url
-    }
-
+    /*
+     * Requests writable signed URL of SC file storage to a S3 bucket
+     *
+     * @param {Path} path               Path to resource
+     * @param {User} user               Current user
+     *
+     * @return {Promise<any>}   JSON-Response of SC-Server containing URL and header.
+     */
     async requestWritableSignedUrl (path: Path, user: User): Promise<any> {
         const filename = path.fileName()
         const contentType = mime.lookup(filename) || 'application/octet-stream'
@@ -536,6 +602,16 @@ class WebFileSystem extends webdav.FileSystem {
         })
     }
 
+    /*
+     * Registers a file to the file storage of SC-Server
+     *
+     * @param {Path} path               Path to resource
+     * @param {User} user               Current user
+     * @param {any} header              S3-Header returned by S3-Request
+     * @param {Array<any>} contents     Contents of stream
+     *
+     * @return {Promise<any>}   File Object of the new file
+     */
     async writeToFileStorage (path: Path, user: User, header: any, content: Array<any>): Promise<any> {
         const owner = this.resources.get(user.uid).get('/' + path.rootName()).id
         const parent = this.resources.get(user.uid).get(path.getParent().toString()).id
@@ -561,6 +637,16 @@ class WebFileSystem extends webdav.FileSystem {
         return await res.json()
     }
 
+    /*
+     * Creates a write stream and stores file when finished
+     *
+     * @param {Path} path               Path to resource
+     * @param {User} user               Current user
+     * @param {User} user               Current user
+     * @param {Array<any>} contents     Contents of stream
+     *
+     * @return {webdav.VirtualFileWritable}   Writable stream
+     */
     processStream(path: Path, user: User, contents: Array<any>): webdav.VirtualFileWritable {
         const stream = new webdav.VirtualFileWritable(contents)
 
@@ -637,46 +723,6 @@ class WebFileSystem extends webdav.FileSystem {
             logger.error('File at moveResource() could not be moved', user.uid,resourceID,newParentID);
             return webdav.Errors.Forbidden
         } )
-    }
-
-    /*
-     * Gets ID by path and user.
-     * ! Assumes that resource is loaded in this.resource !
-     *
-     * @param {string} path         Path to resource
-     * @param {User} user           Current user
-     *
-     * @return {string}   ID of resource
-     */
-    getID(path: Path, user: User) : string{
-        return this.resources.get(user.uid).get(path.toString()).id
-    }
-
-    addFileToResources (path: Path, user: User, file: any) {
-        const creationDate = new Date(file.createdAt)
-        const lastModifiedDate = new Date(file.updatedAt)
-        const permissions = this.populatePermissions(file.permissions, user)
-
-        /*
-        *   Could be simpler than current population strategy:
-        *
-           const permissionRes = await fetch(environment.BASE_URL + '/fileStorage/permission?file=' + resource._id, {
-               headers: {
-                   'Authorization': 'Bearer ' + user.jwt
-               }
-           })
-
-           logger.info(await permissionRes.json())
-        */
-
-        this.resources.get(user.uid).set(path.toString(), {
-            type: file.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
-            id: file._id,
-            size: file.size,
-            creationDate: creationDate.getTime(),
-            lastModifiedDate: lastModifiedDate.getTime(),
-            permissions
-        });
     }
 
     async _move(pathFrom: Path, pathTo: Path, ctx: MoveInfo, callback: ReturnCallback<boolean>): Promise<void> {
