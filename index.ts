@@ -33,6 +33,12 @@ server.setFileSystem('teams', new WebFileSystem('teams'), (succeeded) => {
     }
 });
 
+server.setFileSystem('shared', new WebFileSystem('shared'), (succeeded) => {
+    if (succeeded) {
+        logger.info("Successfully mounted 'shared' file system!")
+    }
+});
+
 const app = express()
 
 // root path doesn't seem to work that easily with all webdav clients, if it doesn't work simply put an empty string there

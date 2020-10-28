@@ -5,6 +5,7 @@ This POC / MVP aims at integrating Files and Folders into other clouds or to hav
 ![Demo](demo.gif)
 
 ## Installation
+
 1. Clone Repository
 1. Set `BASE_URL` in `.env` file
 1. Run `npm install`
@@ -12,6 +13,7 @@ This POC / MVP aims at integrating Files and Folders into other clouds or to hav
 1. Connect to `http://localhost:1900`
 
 ## TODO for MVP
+
 - [x] Handle user auth
 - [x] List users courses
 - [x] List users directories in a course
@@ -23,11 +25,11 @@ This POC / MVP aims at integrating Files and Folders into other clouds or to hav
 
 - [ ] Hide Feature behing Feature Flipper
 - [ ] Move code to server (?)
-- [ ] Documentation 
-- [ ] Tests 
-
+- [ ] Documentation
+- [ ] Tests
 
 ## More TODOs
+
 - [ ] NextCloud / OwnCloud custom attributes
 - [ ] NextCloud / OwnCloud server info
 - [X] Handle Permissions
@@ -36,8 +38,8 @@ This POC / MVP aims at integrating Files and Folders into other clouds or to hav
 - [X] Create Files
 - [X] Create Dirs
 - [x] Upload Files
-- [x] Move Files 
-- [x] Move Dir 
+- [x] Move Files
+- [x] Move Dir
 - [X] Delete Files
 - [X] Delete Dir
 - [x] Write Files
@@ -45,7 +47,7 @@ This POC / MVP aims at integrating Files and Folders into other clouds or to hav
 - [ ] Populate Permissions directly on SC-server
 - [X] Handle teams data
 - [X] handle my files
-- [ ] Handle shared files
+- [X] Handle shared files
 - [ ] Add Dockerfile
 - [ ] Correctly handle anonymous users
 - [ ] Add API req handler/helper

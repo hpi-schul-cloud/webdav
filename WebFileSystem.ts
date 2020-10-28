@@ -87,6 +87,10 @@ class WebFileSystem extends webdav.FileSystem {
                 case 'teams':
                     url = `${environment.BASE_URL}/teams`
                     break
+                case 'shared':
+                    qs = `?$and[0][permissions][$elemMatch][refPermModel]=user&$and[0][permissions][$elemMatch][refId]=${user.uid}&$and[1][creator][$ne]=${user.uid}`;
+                    url= `${environment.BASE_URL}/files/${qs}`;
+                    break
                 default:
                     return []
             }
@@ -97,15 +101,26 @@ class WebFileSystem extends webdav.FileSystem {
                 }
             })
             const data = await res.json()
-
-            for (const directory of data['data']) {
-                this.resources.get(user.uid).set(new Path([directory.name]).toString(), {
-                    type: webdav.ResourceType.Directory,
-                    id: directory._id
-                });
+            
+            // TODO: make this look fancy :)
+            let adder
+            if (this.rootPath === 'shared'){
+                adder = this.addFileToResources.bind(this)
+            } else {
+                adder = (path: Path, user: User, resource : any) => {
+                    this.resources.get(user.uid).set(path.toString(), {
+                        type: webdav.ResourceType.Directory,
+                        id: resource._id
+                   });
+                }
             }
 
-            return data['data'].map((directory) => directory.name)
+            for (const resource of data.data) {
+                adder(new Path([resource.name]), user, resource)
+            }
+            
+
+            return data['data'].map((resource) => resource.name)
         }
     }
 
