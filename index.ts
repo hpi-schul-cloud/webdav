@@ -2,11 +2,9 @@ import {v2 as webdav} from "webdav-server";
 import * as express from 'express'
 import WebFileSystem from "./WebFileSystem";
 import UserManager from "./UserManager";
-import * as dotenv from "dotenv";
 import logger from './logger';
 import {environment} from './config/globals';
 
-dotenv.config()
 
 // TODO: User Management (same credentials as in web client)
 
