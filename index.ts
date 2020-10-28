@@ -40,8 +40,6 @@ const app = express()
 // root path doesn't seem to work that easily with all webdav clients, if it doesn't work simply put an empty string there
 app.use(webdav.extensions.express('', server))
 
-app.get
-
 app.listen(environment.PORT, () => {
     logger.info('Ready on port ' + environment.PORT)
 })
