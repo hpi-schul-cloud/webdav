@@ -1,10 +1,12 @@
 import {v2 as webdav} from "webdav-server";
+import * as express from 'express'
 import WebFileSystem from "./WebFileSystem";
 import UserManager from "./UserManager";
-import {AddressInfo} from "net";
+import * as dotenv from "dotenv";
 import logger from './logger';
+import {environment} from './config/globals';
 
-require('dotenv').config()
+dotenv.config()
 
 // TODO: User Management (same credentials as in web client)
 
@@ -12,6 +14,7 @@ const userManager = new UserManager()
 
 const server = new webdav.WebDAVServer({
     httpAuthentication: new webdav.HTTPBasicAuthentication(userManager)
+
 });
 
 server.setFileSystem('courses', new WebFileSystem('courses'), (succeeded) => {
@@ -32,7 +35,13 @@ server.setFileSystem('teams', new WebFileSystem('teams'), (succeeded) => {
     }
 });
 
-server.start((s) => {
-    const { port } = s.address() as AddressInfo
-    logger.info('Ready on port ' + port)
-});
+const app = express()
+
+// root path doesn't seem to work that easily with all webdav clients, if it doesn't work simply put an empty string there
+app.use(webdav.extensions.express('', server))
+
+app.get
+
+app.listen(environment.PORT, () => {
+    logger.info('Ready on port ' + environment.PORT)
+})

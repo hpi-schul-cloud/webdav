@@ -29,7 +29,7 @@ export default class UserManager implements ITestableUserManager, IListUserManag
     async getUserByNamePassword(name: string, password: string, callback: (error: Error, user?: IUser) => void): Promise<any> {
         // Currently this method isn't called due to a missing authorisation header, probably because MacOS doesn't send an Authorization header to unsecured sites
 
-        logger.info('Retrieving user by name and password...')
+        logger.info('Retrieving user \'' + name + '\'...')
         // relevant for HTTPBasicAuthentication
 
         if (this.users.has(name)) {
