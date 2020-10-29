@@ -69,11 +69,11 @@ app.get('/ocs/v1.php/cloud/capabilities?format=json', (req, res) => {
                 capabilities: {
                     files: {
                         blacklisted_files : [],
-                        bigfilechunking: true,
-                        privateLinks: true,
-                        privateLinksDetailsParam: true,
-                        undelete: true,
-                        versioning: true
+                        bigfilechunking: false,
+                        privateLinks: false,
+                        privateLinksDetailsParam: false,
+                        undelete: false,
+                        versioning: false
                     },
                     dav: {
                         chunking: '1.0'
@@ -95,6 +95,13 @@ app.get('/ocs/v1.php/cloud/capabilities?format=json', (req, res) => {
             }
         }
     })
+})
+
+// the nextcloud client requests every files data using PROPFIND method
+app.propfind('/remote.php/webdav/', (req, res) => {
+    logger.info('Requesting root file data...')
+    res.send()
+    // TODO: Respond with XML as stated in: https://doc.owncloud.org/desktop/architecture.html
 })
 
 // root path doesn't seem to work that easily with all webdav clients, if it doesn't work simply put an empty string there
