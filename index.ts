@@ -42,6 +42,7 @@ server.setFileSystem('shared', new WebFileSystem('shared'), (succeeded) => {
 const app = express()
 
 app.get('/nextcloud/status.php', (req, res) => {
+    logger.info('Requesting status...')
     // TODO: Answer with real data
     res.send({
         installed: true,
@@ -54,24 +55,39 @@ app.get('/nextcloud/status.php', (req, res) => {
     })
 })
 
+app.get('/ocs/v1.php/cloud/capabilities', (req, res) => {
+    logger.info('Requesting capabilities (default)...')
+})
+
+// Not sure whether this even gets requested...
 app.get('/ocs/v1.php/cloud/capabilities?format=json', (req, res) => {
+    logger.info('Requesting capabilities (JSON)...')
+    // TODO: Determine what is needed
     res.send({
         ocs: {
             data: {
                 capabilities: {
+                    files: {
+                        blacklisted_files : [],
+                        bigfilechunking: true,
+                        privateLinks: true,
+                        privateLinksDetailsParam: true,
+                        undelete: true,
+                        versioning: true
+                    },
                     dav: {
-                        chunking: "1.0"
+                        chunking: '1.0'
                     },
                     core: {
                         'webdav-root' : environment.WEBDAV_ROOT,
                         status: {
-                            edition: "Community",
-                            installed: "true",
-                            needsDbUpgrade: "false",
-                            versionstring: "10.0.3",
-                            productname: "HPI Schul-Cloud",
-                            maintenance: "false",
-                            version : "10.0.3.3"
+                            edition: 'Community',
+                            installed: 'true',
+                            needsDbUpgrade: 'false',
+                            versionstring: '10.0.3',
+                            productname: 'HPI Schul-Cloud',
+                            maintenance: 'false',
+                            version : '10.0.3.3'
                         },
                         pollinterval: 60
                     }
@@ -79,7 +95,6 @@ app.get('/ocs/v1.php/cloud/capabilities?format=json', (req, res) => {
             }
         }
     })
-    // TODO: Send server capabilities as JSON
 })
 
 // root path doesn't seem to work that easily with all webdav clients, if it doesn't work simply put an empty string there
