@@ -42,7 +42,7 @@ server.setFileSystem('shared', new WebFileSystem('shared'), (succeeded) => {
 const app = express()
 
 // root path doesn't seem to work that easily with all webdav clients, if it doesn't work simply put an empty string there
-app.use(webdav.extensions.express('', server))
+app.use(webdav.extensions.express(environment.WEBDAV_ROOT, server))
 
 app.listen(environment.PORT, () => {
     logger.info('Ready on port ' + environment.PORT)
