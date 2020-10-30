@@ -4,6 +4,7 @@ import WebFileSystem from "./WebFileSystem";
 import UserManager from "./UserManager";
 import logger from './logger';
 import {environment} from './config/globals';
+import Propfind from "webdav-server/lib/server/v2/commands/Propfind";
 
 
 // TODO: User Management (same credentials as in web client)
@@ -41,6 +42,12 @@ server.setFileSystem('shared', new WebFileSystem('shared'), (succeeded) => {
 
 const app = express()
 
+// HEAD Request to webdav root maybe needs to be processed, doesn't work until now
+app.use((req, res, next) => {
+    logger.info('Calling ' + req.method + ' ' + req.originalUrl + '...')
+    next()
+})
+
 app.get('/nextcloud/status.php', (req, res) => {
     logger.info('Requesting status...')
     // TODO: Answer with real data
@@ -55,11 +62,16 @@ app.get('/nextcloud/status.php', (req, res) => {
     })
 })
 
-app.get('/ocs/v1.php/cloud/capabilities', (req, res) => {
-    logger.info('Requesting capabilities (default)...')
+app.get('/ocs/v1.php', (req, res) => {
+    logger.info('Requesting version route...')
+    res.send()
 })
 
-// Not sure whether this even gets requested...
+app.get('/ocs/v1.php/cloud/capabilities', (req, res) => {
+    logger.info('Requesting capabilities (default)...')
+    res.send()
+})
+
 app.get('/ocs/v1.php/cloud/capabilities?format=json', (req, res) => {
     logger.info('Requesting capabilities (JSON)...')
     // TODO: Determine what is needed
@@ -95,13 +107,6 @@ app.get('/ocs/v1.php/cloud/capabilities?format=json', (req, res) => {
             }
         }
     })
-})
-
-// the nextcloud client requests every files data using PROPFIND method
-app.propfind('/remote.php/webdav/', (req, res) => {
-    logger.info('Requesting root file data...')
-    res.send()
-    // TODO: Respond with XML as stated in: https://doc.owncloud.org/desktop/architecture.html
 })
 
 // root path doesn't seem to work that easily with all webdav clients, if it doesn't work simply put an empty string there
