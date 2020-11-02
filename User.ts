@@ -1,6 +1,7 @@
 import {IUser} from "webdav-server/lib/user/v2/IUser";
 import {environment} from "./config/globals";
 import * as fetch from 'node-fetch'
+import api from './api';
 
 export default class User implements IUser {
     uid: string;
@@ -20,19 +21,13 @@ export default class User implements IUser {
     /*
      * Loads the roles of the user
      */
-    async loadRoles() {
+    async loadRoles() : Promise<void> {
 
         // TODO: Implement logic on SC-server instead of webdav with a specific flag
 
-        const res = await fetch(environment.BASE_URL + '/roles/user/' + this.uid, {
-            headers: {
-                'Authorization': 'Bearer ' + this.jwt
-            }
-        })
+        const res = await api({jwt : this.jwt}).get('/roles/user/' + this.uid);
 
-        const data = await res.json()
-
-        for (const role of data) {
+        for (const role of res.data) {
             this.roles.push(role.id)
             const nestedRoles = role.roles
             for (const nestedRole of nestedRoles) {
@@ -45,16 +40,10 @@ export default class User implements IUser {
     /*
      * Searches the complete role-tree until every nested role is found
      */
-    async getNestedRoles (id: string) {
-        const res = await fetch(environment.BASE_URL + '/roles/' + id, {
-            headers: {
-                'Authorization': 'Bearer ' + this.jwt
-            }
-        })
+    async getNestedRoles (id: string) : Promise<void> {
+        const res = await api({jwt: this.jwt}).get('/roles/' + id);
 
-        const data = await res.json()
-
-        for (const role of data.roles) {
+        for (const role of res.data.roles) {
             this.roles.push(role)
             await this.getNestedRoles(role)
         }
