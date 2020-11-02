@@ -1,6 +1,4 @@
 import {IUser} from "webdav-server/lib/user/v2/IUser";
-import {environment} from "./config/globals";
-import * as fetch from 'node-fetch'
 import api from './api';
 
 export default class User implements IUser {
