@@ -50,4 +50,4 @@ This POC / MVP aims at integrating Files and Folders into other clouds or to hav
 - [X] Handle shared files
 - [X] Add Dockerfile
 - [ ] Correctly handle anonymous users
-- [ ] Add API req handler/helper
+- [X] Add API req handler/helper
