@@ -31,7 +31,8 @@ This POC / MVP aims at integrating Files and Folders into other clouds or to hav
 ## More TODOs
 
 - [ ] NextCloud / OwnCloud custom attributes
-- [ ] NextCloud / OwnCloud server info
+- [X] NextCloud / OwnCloud status info
+- [ ] NextCloud / OwnCloud handle HTTP-Requests
 - [X] Handle Permissions
 - [x] Handle available metadata
 - [ ] Have updatetAt available on directories (must be done in SC Server, thsi will require performant handling or different data schemas, like storing all parents on files an folders)

@@ -42,8 +42,6 @@ server.setFileSystem('shared', new WebFileSystem('shared'), (succeeded) => {
 
 const app = express()
 
-// HEAD Request to webdav root maybe needs to be processed, doesn't work until now
-
 /*
 Calling GET /ocs/v1.php/cloud/capabilities?format=json...
 Calling GET /ocs/v1.php/config?format=json...
@@ -69,11 +67,6 @@ app.get('/nextcloud/status.php', (req, res) => {
         edition: "Community",
         productname: "HPI Schul-Cloud"
     })
-})
-
-app.get('/ocs/v1.php', (req, res) => {
-    logger.info('Requesting version route...')
-    res.send()
 })
 
 // TODO: Determine what is needed
@@ -119,6 +112,12 @@ app.get('/ocs/v1.php/cloud/capabilities?format=json', (req, res) => {
 app.get('/ocs/v2.php/cloud/capabilities?format=json', (req, res) => {
     logger.info('Requesting v2 capabilities (JSON)...')
     res.send(capabilities)
+})
+
+// HEAD Request to webdav root maybe needs to be processed, doesn't work until now
+app.head('/remote.php/webdav/', (req, res, next) => {
+    logger.info('Requesting HEAD of root...')
+    res.send()
 })
 
 // root path doesn't seem to work that easily with all webdav clients, if it doesn't work simply put an empty string there
