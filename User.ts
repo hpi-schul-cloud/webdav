@@ -23,7 +23,7 @@ export default class User implements IUser {
 
         // TODO: Implement logic on SC-server instead of webdav with a specific flag
 
-        const res = await api({jwt : this.jwt}).get('/roles/user/' + this.uid);
+        const res = await api({user : this}).get('/roles/user/' + this.uid);
 
         for (const role of res.data) {
             this.roles.push(role.id)
@@ -39,7 +39,7 @@ export default class User implements IUser {
      * Searches the complete role-tree until every nested role is found
      */
     async getNestedRoles (id: string) : Promise<void> {
-        const res = await api({jwt: this.jwt}).get('/roles/' + id);
+        const res = await api({user: this}).get('/roles/' + id);
 
         for (const role of res.data.roles) {
             this.roles.push(role)

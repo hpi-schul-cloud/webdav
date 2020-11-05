@@ -5,16 +5,13 @@ import User from './User';
 
 interface API_req {
     user? : User;
-    jwt? : string;
     json? : boolean;
 }
 const api = (req : API_req): AxiosInstance => {
     const headers = {};
     if (req.user){
         headers['Authorization'] = ' Bearer ' + req.user.jwt;
-    } else if (req.jwt){
-        headers['Authorization'] = ' Bearer ' + req.jwt;
-    } 
+    }
 	if (req.json) {
         headers['Content-Type'] = 'application/json';
     }
