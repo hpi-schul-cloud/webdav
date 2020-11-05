@@ -1,5 +1,4 @@
 import {v2 as webdav} from "webdav-server";
-import * as fetch from 'node-fetch'
 import * as mime from 'mime-types'
 import {Path} from "webdav-server/lib/manager/v2/Path";
 import {
@@ -350,8 +349,8 @@ class WebFileSystem extends webdav.FileSystem {
                 // TODO: URL should be cached in resources (but needs to be renewed sometimes)
 
                 if (url) {
-                    const file = await fetch(url)
-                    const buffer = await file.buffer()
+                    const file = await api({}).get(url, { responseType: 'arraybuffer' })
+                    const buffer = await file.data
 
                     callback(null, new webdav.VirtualFileReadable([ buffer ]))
                 } else {
@@ -628,13 +627,14 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     async writeToSignedUrl (url: string, header: any, content: Array<any>): Promise<void> {
-        await fetch(url, {
-            method: 'PUT',
+        logger.error(url)
+        await api({}).put(url,
+            Buffer.concat(content),
+            {
             headers: {
                 ...header
             },
-            body: Buffer.concat(content),
-        })
+        }).catch((error) => { logger.error(error)})
     }
 
     /*
