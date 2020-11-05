@@ -42,7 +42,14 @@ server.setFileSystem('shared', new WebFileSystem('shared'), (succeeded) => {
 
 const app = express()
 
-// HEAD Request to webdav root maybe needs to be processed, doesn't work until now
+/*
+Calling GET /ocs/v1.php/cloud/capabilities?format=json...
+Calling GET /ocs/v1.php/config?format=json...
+Calling GET /ocs/v1.php/cloud/user?format=json...
+Calling GET /remote.php/dav/avatars/lehrer@schul-cloud.org/128.png...
+Calling GET /ocs/v2.php/apps/notifications/api/v2/notifications?format=json...
+Calling GET /ocs/v2.php/core/navigation/apps?absolute=true&format=json...
+ */
 app.use((req, res, next) => {
     logger.info('Calling ' + req.method + ' ' + req.originalUrl + '...')
     next()
@@ -62,51 +69,55 @@ app.get('/nextcloud/status.php', (req, res) => {
     })
 })
 
-app.get('/ocs/v1.php', (req, res) => {
-    logger.info('Requesting version route...')
-    res.send()
-})
-
-app.get('/ocs/v1.php/cloud/capabilities', (req, res) => {
-    logger.info('Requesting capabilities (default)...')
-    res.send()
-})
-
-app.get('/ocs/v1.php/cloud/capabilities?format=json', (req, res) => {
-    logger.info('Requesting capabilities (JSON)...')
-    // TODO: Determine what is needed
-    res.send({
-        ocs: {
-            data: {
-                capabilities: {
-                    files: {
-                        blacklisted_files : [],
-                        bigfilechunking: false,
-                        privateLinks: false,
-                        privateLinksDetailsParam: false,
-                        undelete: false,
-                        versioning: false
+// TODO: Determine what is needed
+const capabilities = {
+    ocs: {
+        data: {
+            capabilities: {
+                files: {
+                    blacklisted_files : [],
+                    bigfilechunking: false,
+                    privateLinks: false,
+                    privateLinksDetailsParam: false,
+                    undelete: false,
+                    versioning: false
+                },
+                dav: {
+                    chunking: '1.0'
+                },
+                core: {
+                    'webdav-root' : environment.WEBDAV_ROOT,
+                    status: {
+                        edition: 'Community',
+                        installed: 'true',
+                        needsDbUpgrade: 'false',
+                        versionstring: '10.0.3',
+                        productname: 'HPI Schul-Cloud',
+                        maintenance: 'false',
+                        version : '10.0.3.3'
                     },
-                    dav: {
-                        chunking: '1.0'
-                    },
-                    core: {
-                        'webdav-root' : environment.WEBDAV_ROOT,
-                        status: {
-                            edition: 'Community',
-                            installed: 'true',
-                            needsDbUpgrade: 'false',
-                            versionstring: '10.0.3',
-                            productname: 'HPI Schul-Cloud',
-                            maintenance: 'false',
-                            version : '10.0.3.3'
-                        },
-                        pollinterval: 60
-                    }
+                    pollinterval: 60
                 }
             }
         }
-    })
+    }
+}
+
+app.get('/ocs/v1.php/cloud/capabilities?format=json', (req, res) => {
+    logger.info('Requesting v1 capabilities (JSON)...')
+    res.send(capabilities)
+})
+
+// Seems to get requested much earlier, however, nextcloud tries to get /remote.php/webdav
+app.get('/ocs/v2.php/cloud/capabilities?format=json', (req, res) => {
+    logger.info('Requesting v2 capabilities (JSON)...')
+    res.send(capabilities)
+})
+
+// HEAD Request to webdav root maybe needs to be processed, doesn't work until now
+app.head('/remote.php/webdav/', (req, res, next) => {
+    logger.info('Requesting HEAD of root...')
+    res.send()
 })
 
 // root path doesn't seem to work that easily with all webdav clients, if it doesn't work simply put an empty string there
