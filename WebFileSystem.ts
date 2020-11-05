@@ -518,7 +518,11 @@ class WebFileSystem extends webdav.FileSystem {
 
             logger.info(data)
 
-            this.addFileToResources(path, user, data)
+            if (data._id) {
+                this.addFileToResources(path, user, data)
+            } else {
+                return webdav.Errors.Forbidden
+            }
         } else {
             const data = await this.requestWritableSignedUrl(path, user)
             await this.writeToSignedUrl(data.url, data.header, [])
@@ -526,7 +530,11 @@ class WebFileSystem extends webdav.FileSystem {
 
             logger.info(file)
 
-            this.addFileToResources(path, user, file)
+            if (file._id) {
+                this.addFileToResources(path, user, file)
+            } else {
+                return webdav.Errors.Forbidden
+            }
         }
 
         return null
