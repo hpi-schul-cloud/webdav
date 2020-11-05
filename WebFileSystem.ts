@@ -101,7 +101,7 @@ class WebFileSystem extends webdav.FileSystem {
                 }
             })
             const data = await res.json()
-            
+
             // TODO: make this look fancy :)
             let adder
             if (this.rootPath === 'shared'){
@@ -118,7 +118,7 @@ class WebFileSystem extends webdav.FileSystem {
             for (const resource of data.data) {
                 adder(new Path([resource.name]), user, resource)
             }
-            
+
 
             return data['data'].map((resource) => resource.name)
         }
