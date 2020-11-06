@@ -3,7 +3,7 @@ import {IListUserManager} from "webdav-server/lib/user/v2/userManager/IListUserM
 import {IUser} from "webdav-server/lib/user/v2/IUser";
 import User from "./User";
 import {v2 as webdav} from "webdav-server";
-import * as fetch from 'node-fetch'
+import api from './api'
 import {environment} from './config/globals';
 import logger from './logger';
 
@@ -43,20 +43,14 @@ export default class UserManager implements ITestableUserManager, IListUserManag
             }
         }
 
-        const res = await fetch(environment.BASE_URL + '/authentication', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                strategy: 'local',
-                username: name,
-                password,
-                privateDevice: true
-            })
+        const res = await api({json: true}).post('/authentication', {
+            strategy: 'local',
+            username: name,
+            password,
+            privateDevice: true
         })
 
-        const data = await res.json()
+        const data = res.data
 
         if (data.accessToken) {
             const user = new User(data.account.userId, name, password, data.accessToken)
