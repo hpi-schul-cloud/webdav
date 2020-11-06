@@ -69,6 +69,31 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
+     * Returns whether a given path was already loaded
+     *
+     * @param {Path} path         Path to resource
+     * @param {User} user         Current user
+     *
+     * @return {boolean}   Existence of resource
+     */
+    resourceExists(path: Path, user: User): boolean {
+        return this.resources.get(user.uid).has(path.toString())
+    }
+
+    /*
+     * Gets ID by path and user.
+     * ! Assumes that resource is loaded in this.resource !
+     *
+     * @param {Path} path         Path to resource
+     * @param {User} user           Current user
+     *
+     * @return {string}   ID of resource
+     */
+    getID(path: Path, user: User) : string {
+        return this.resourceExists(path, user) ? this.resources.get(user.uid).get(path.toString()).id : null
+    }
+
+    /*
      * Returns the owner ID of the given resource
      *
      * @param {Path} path   Path of the resource
@@ -94,7 +119,7 @@ class WebFileSystem extends webdav.FileSystem {
      */
     getParentID (path: Path, user: User): string {
         if (this.rootPath === 'my') {
-            return this.resources.get(user.uid).has(path.toString()) ? this.getID(path, user) : user.uid
+            return this.resourceExists(path, user) ? this.getID(path, user) : user.uid
         } else {
             return this.getID(path, user)
         }
@@ -233,8 +258,8 @@ class WebFileSystem extends webdav.FileSystem {
     async loadPath(path: Path, user: User) : Promise<boolean> {
         await this.loadRootDirectories(user)
         let currentPath = path.getParent()
-        while (!this.resources.get(user.uid).has(path.toString())) {
-            if (this.resources.get(user.uid).has(currentPath.toString())) {
+        while (!this.resourceExists(path, user)) {
+            if (this.resourceExists(currentPath, user)) {
                 const resources = await this.loadDirectory(currentPath, user);
 
                 if (!resources.includes(path.paths[currentPath.paths.length])) {
@@ -263,7 +288,7 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<number>}   Metadata value
      */
     async getMetadata(path: Path, key: string, user: User) : Promise<number> {
-        if (this.resources.get(user.uid).has(path.toString())) {
+        if (this.resourceExists(path, user)) {
             const value = this.resources.get(user.uid).get(path.toString())[key]
             if (value) {
                 return value
@@ -290,19 +315,6 @@ class WebFileSystem extends webdav.FileSystem {
         if (!this.resources.has(uid)) {
             this.resources.set(uid, new Map())
         }
-    }
-
-    /*
-     * Gets ID by path and user.
-     * ! Assumes that resource is loaded in this.resource !
-     *
-     * @param {Path} path         Path to resource
-     * @param {User} user           Current user
-     *
-     * @return {string}   ID of resource
-     */
-    getID(path: Path, user: User) : string{
-        return this.resources.get(user.uid).get(path.toString()).id
     }
 
     /*
@@ -406,7 +418,7 @@ class WebFileSystem extends webdav.FileSystem {
                     callback(null, await this.loadRootDirectories(user))
                 }
             } else {
-                if (this.resources.get(user.uid).has(path.toString())) {
+                if (this.resourceExists(path, user)) {
                     const resources = await this.loadDirectory(path, user)
 
                     callback(null, resources)
@@ -436,7 +448,7 @@ class WebFileSystem extends webdav.FileSystem {
             const user: User = <User> info.context.user
             this.createUserFileSystem(user.uid)
 
-            if (this.resources.get(user.uid).has(path.toString())) {
+            if (this.resourceExists(path, user)) {
                 callback(null, this.resources.get(user.uid).get(path.toString()).type)
             } else {
                 if (await this.loadPath(path, user)) {
@@ -573,7 +585,7 @@ class WebFileSystem extends webdav.FileSystem {
                 } else {
                     callback(webdav.Errors.Forbidden)
                 }
-            } else if (this.resources.get(user.uid).has(path.getParent().toString())) {
+            } else if (this.resourceExists(path.getParent(), user)) {
                 callback(await this.createResource(path, user, ctx.type))
             } else {
                 if (await this.loadPath(path.getParent(), user)) {
@@ -621,12 +633,14 @@ class WebFileSystem extends webdav.FileSystem {
         logger.info("Deleting resource: " + path)
 
         if (ctx.context.user) {
-            this.createUserFileSystem(ctx.context.user.uid)
-            if (this.resources.get(ctx.context.user.uid).has(path.toString())) {
-                callback(await this.deleteResource(path, <User> ctx.context.user))
+            const user: User = <User> ctx.context.user
+            this.createUserFileSystem(user.uid)
+
+            if (this.resourceExists(path, user)) {
+                callback(await this.deleteResource(path, user))
             } else {
-                if (await this.loadPath(path, <User> ctx.context.user)) {
-                    callback(await this.deleteResource(path, <User> ctx.context.user))
+                if (await this.loadPath(path, user)) {
+                    callback(await this.deleteResource(path, user))
                 } else {
                     callback(webdav.Errors.ResourceNotFound)
                 }
@@ -650,7 +664,7 @@ class WebFileSystem extends webdav.FileSystem {
         const parent = this.getParentID(path.getParent(), user)
 
         let res
-        if (this.resources.get(user.uid).has(path.toString())) {
+        if (this.resourceExists(path, user)) {
             res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl/' + this.getID(path, user), {
                 method: 'PATCH',
                 headers: {
@@ -750,10 +764,10 @@ class WebFileSystem extends webdav.FileSystem {
             logger.info(Buffer.concat(contents).toString())
             await this.writeToSignedUrl(data.url, data.header, contents)
 
-            if (!this.resources.get(user.uid).has(path.toString())) {
+            if (!this.resourceExists(path, user)) {
                 const file = await this.writeToFileStorage(path, user, data.header, contents)
 
-                if (!this.resources.get(user.uid).has(path.toString())) {
+                if (!this.resourceExists(path, user)) {
                     this.addFileToResources(path, user, file)
                 }
             }
@@ -769,7 +783,7 @@ class WebFileSystem extends webdav.FileSystem {
             const user: User = <User> ctx.context.user
             this.createUserFileSystem(user.uid)
 
-            if (this.resources.get(user.uid).has(path.toString())) {
+            if (this.resourceExists(path, user)) {
                 if (this.resources.get(user.uid).get(path.toString()).permissions?.write) {
 
                     // This part causes some problems by only appending to the content and not editing, so I will comment it for now (maybe it's not needed at all)
@@ -894,12 +908,14 @@ class WebFileSystem extends webdav.FileSystem {
         logger.info("Renaming file: " + pathFrom + " --> " + newName)
 
         if (ctx.context.user) {
-            this.createUserFileSystem(ctx.context.user.uid)
-            if (this.resources.get(ctx.context.user.uid).has(pathFrom.toString())) {
-                callback(await this.renameResource(pathFrom, <User> ctx.context.user, newName))
+            const user: User = <User> ctx.context.user
+            this.createUserFileSystem(user.uid)
+
+            if (this.resourceExists(pathFrom, user)) {
+                callback(await this.renameResource(pathFrom, user, newName))
             } else {
-                if (await this.loadPath(pathFrom, <User> ctx.context.user)) {
-                    callback(await this.renameResource(pathFrom, <User> ctx.context.user, newName))
+                if (await this.loadPath(pathFrom, user)) {
+                    callback(await this.renameResource(pathFrom, user, newName))
                 } else {
                     callback(webdav.Errors.ResourceNotFound)
                 }
