@@ -906,6 +906,8 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
+   // TODO: Fix some weird issues regarding 'my' directory and 404 errors
+
    async _rename(pathFrom: Path, newName: string, ctx: RenameInfo, callback: ReturnCallback<boolean>): Promise<void> {
         logger.info("Renaming file: " + pathFrom + " --> " + newName)
 
