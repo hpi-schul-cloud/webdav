@@ -843,6 +843,7 @@ class WebFileSystem extends webdav.FileSystem {
                 this.resources.get(user.uid).set(path.getParent().getChildPath(newName).toString(), this.resources.get(user.uid).get(path.toString()))
                 this.resources.get(user.uid).delete(path.toString())
                 logger.info(`File at ${path.toString()} now named ${newName}`);
+                return null
             }).catch((error) => {
                 logger.error(error)
                 return webdav.Errors.InvalidOperation
