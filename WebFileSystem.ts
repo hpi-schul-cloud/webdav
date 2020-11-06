@@ -351,7 +351,7 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {webdav.VirtualFileWritable}   Writable stream
      */
     async retrieveSignedUrl (path: Path, user: User): Promise<string> {
-        const res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl?file=' + this.resources.get(user.uid).get(path.toString()).id, {
+        const res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl?file=' + this.getID(path, user), {
             headers: {
                 'Authorization': 'Bearer ' + user.jwt
             }
@@ -548,6 +548,7 @@ class WebFileSystem extends webdav.FileSystem {
 
             logger.info(file)
 
+            // Can not create default Permissions
             if (file._id) {
                 this.addFileToResources(path, user, file)
             } else {
@@ -597,7 +598,7 @@ class WebFileSystem extends webdav.FileSystem {
     async deleteResource (path: Path, user: User) : Promise<Error> {
         if (this.resources.get(user.uid).get(path.toString()).permissions?.delete) {
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
-            const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories?_id=' : '?_id=') + this.resources.get(user.uid).get(path.toString()).id, {
+            const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories?_id=' : '?_id=') + this.getID(path, user), {
                 method: 'DELETE',
                 headers: {
                     'Authorization': 'Bearer ' + user.jwt
@@ -646,7 +647,7 @@ class WebFileSystem extends webdav.FileSystem {
     async requestWritableSignedUrl (path: Path, user: User): Promise<any> {
         const filename = path.fileName()
         const contentType = mime.lookup(filename) || 'application/octet-stream'
-        const parent = this.resources.get(user.uid).get(path.getParent().toString()).id
+        const parent = this.getParentID(path.getParent(), user)
 
         let res
         if (this.resources.get(user.uid).has(path.toString())) {
@@ -667,7 +668,7 @@ class WebFileSystem extends webdav.FileSystem {
                 body: JSON.stringify({
                     filename,
                     fileType: contentType,
-                    parent: this.resources.get(user.uid).get('/' + path.rootName()).id != parent ? parent : undefined,
+                    parent: this.getOwnerID(path, user) != parent ? parent : undefined,
                     action: 'putObject'
                 })
             })
@@ -706,21 +707,26 @@ class WebFileSystem extends webdav.FileSystem {
 
         const type = mime.lookup(path.fileName()) || 'application/octet-stream'
 
+        const body = {
+            name: path.fileName(),
+            parent: parent != owner ? parent : undefined,
+            type,
+            size: Buffer.concat(content).byteLength,
+            storageFileName: header['x-amz-meta-flat-name'],
+            thumbnail: header['x-amz-meta-thumbnail']
+        }
+
+        if (owner !== user.uid) {
+            body['owner'] = owner
+        }
+
         const res = await fetch(environment.BASE_URL + '/fileStorage', {
             method: 'POST',
             headers: {
                 'Authorization': 'Bearer ' + user.jwt,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                name: path.fileName(),
-                owner,
-                parent: parent != owner ? parent : undefined,
-                type,
-                size: Buffer.concat(content).byteLength,
-                storageFileName: header['x-amz-meta-flat-name'],
-                thumbnail: header['x-amz-meta-thumbnail']
-            })
+            body: JSON.stringify(body)
         })
 
         return await res.json()
@@ -867,7 +873,7 @@ class WebFileSystem extends webdav.FileSystem {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    id: this.resources.get(user.uid).get(path.toString()).id,
+                    id: this.getID(path, user),
                     newName
                 })
             }).then((res) => res.json())
