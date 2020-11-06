@@ -69,6 +69,38 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
+     * Returns the owner ID of the given resource
+     *
+     * @param {Path} path   Path of the resource
+     * @param {User} user   Current user
+     *
+     * @return {string}   owner ID
+     */
+    getOwnerID (path: Path, user: User): string {
+        if (this.rootPath === 'my') {
+            return user.uid
+        } else {
+            return this.getID(new Path(path.rootName()), user)
+        }
+    }
+
+    /*
+     * Returns the parent ID of the given resource
+     *
+     * @param {Path} path   Path of the resource
+     * @param {User} user   Current user
+     *
+     * @return {string}   parent ID
+     */
+    getParentID (path: Path, user: User): string {
+        if (this.rootPath === 'my') {
+            return this.resources.get(user.uid).has(path.toString()) ? this.getID(path, user) : user.uid
+        } else {
+            return this.getID(path, user)
+        }
+    }
+
+    /*
      * Loads the root directories of the user
      *
      * @param {User} user   Current user
@@ -170,17 +202,10 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<string[]>}  List of resources in directory
      */
     async loadDirectory (path: Path, user: User) : Promise<string[]> {
-        let ownerID
-        let parentID
-        if (this.rootPath === 'my') {
-            ownerID = user.uid
-            parentID = this.resources.get(user.uid).has(path.toString()) ? this.resources.get(user.uid).get(path.toString()).id : user.uid
-        } else {
-            ownerID = this.resources.get(user.uid).get('/' + path.rootName()).id;
-            parentID = this.resources.get(user.uid).get(path.toString()).id;
-        }
+        const owner = this.getOwnerID(path, user)
+        const parent = this.getParentID(path, user)
 
-        const res = await fetch(environment.BASE_URL + '/fileStorage?owner=' + ownerID + (parentID != ownerID ? '&parent=' + parentID : ''), {
+        const res = await fetch(environment.BASE_URL + '/fileStorage?owner=' + owner + (parent != owner ? '&parent=' + parent : ''), {
             headers: {
                 'Authorization': 'Bearer ' + user.jwt
             }
@@ -486,15 +511,8 @@ class WebFileSystem extends webdav.FileSystem {
         // TODO: Handle permissions
 
         if (type.isDirectory || mime.extension(mime.lookup(path.fileName())) in ['docx', 'pptx', 'xlsx']) {
-            let owner
-            let parent
-            if (this.rootPath === 'my') {
-                owner = user.uid
-                parent = this.resources.get(user.uid).has(path.getParent().toString()) ? this.resources.get(user.uid).get(path.getParent().toString()).id : user.uid
-            } else {
-                owner = this.resources.get(user.uid).get('/' + path.rootName()).id;
-                parent = this.resources.get(user.uid).get(path.getParent().toString()).id;
-            }
+            const owner = this.getOwnerID(path, user)
+            const parent = this.getParentID(path.getParent(), user)
 
             const body = {
                 name: path.fileName(),
@@ -683,15 +701,8 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<any>}   File Object of the new file
      */
     async writeToFileStorage (path: Path, user: User, header: any, content: Array<any>): Promise<any> {
-        let owner
-        let parent
-        if (this.rootPath === 'my') {
-            owner = user.uid
-            parent = this.resources.get(user.uid).has(path.getParent().toString()) ? this.resources.get(user.uid).get(path.getParent().toString()).id : user.uid
-        } else {
-            owner = this.resources.get(user.uid).get('/' + path.rootName()).id;
-            parent = this.resources.get(user.uid).get(path.getParent().toString()).id;
-        }
+        const owner = this.getOwnerID(path, user)
+        const parent = this.getParentID(path.getParent(), user)
 
         const type = mime.lookup(path.fileName()) || 'application/octet-stream'
 
