@@ -1,5 +1,4 @@
 import {v2 as webdav} from "webdav-server";
-import * as fetch from 'node-fetch'
 import * as mime from 'mime-types'
 import {Path} from "webdav-server/lib/manager/v2/Path";
 import {
@@ -22,8 +21,8 @@ import {Readable, Writable} from "stream";
 import {ILockManager} from "webdav-server/lib/manager/v2/fileSystem/LockManager";
 import {IPropertyManager} from "webdav-server/lib/manager/v2/fileSystem/PropertyManager";
 import User from "./User";
-import {environment} from './config/globals';
 import logger from './logger';
+import api from './api';
 
 class WebFileSystemSerializer implements webdav.FileSystemSerializer {
     uid(): string {
@@ -138,27 +137,31 @@ class WebFileSystem extends webdav.FileSystem {
             let url
             switch (this.rootPath) {
                 case 'courses':
-                    qs = `?$or[0][userIds]=${user.uid}&$or[1][teacherIds]=${user.uid}&$or[2][substiutionIds]=${user.uid}`;
-                    url = `${environment.BASE_URL}/courses/${qs}`
+                    qs = {$or: [
+                        { userIds: user.uid },
+                        { teacherIds: user.uid },
+                        { substitutionIds: user.uid },
+                    ],}
+                    url = `/courses`
                     break
                 case 'teams':
-                    url = `${environment.BASE_URL}/teams`
+                    url = `/teams`
                     break
                 case 'shared':
-                    qs = `?$and[0][permissions][$elemMatch][refPermModel]=user&$and[0][permissions][$elemMatch][refId]=${user.uid}&$and[1][creator][$ne]=${user.uid}`;
-                    url= `${environment.BASE_URL}/files/${qs}`;
+                    qs= {
+                        $and: [
+                            { permissions: { $elemMatch: { refPermModel: 'user', refId: user.uid } } },
+                            { creator: { $ne: user.uid } },
+                        ],
+                    }
+                    url= `/files`
                     break
                 default:
                     return []
             }
+            const res = await api({user}).get(url, {params: qs})
 
-            const res = await fetch(url, {
-                headers: {
-                    'Authorization': 'Bearer ' + user.jwt
-                }
-            })
-            const data = await res.json()
-
+            const data = res.data
             // TODO: make this look fancy :)
             let adder
             if (this.rootPath === 'shared'){
@@ -230,13 +233,9 @@ class WebFileSystem extends webdav.FileSystem {
         const owner = this.getOwnerID(path, user)
         const parent = this.getParentID(path, user)
 
-        const res = await fetch(environment.BASE_URL + '/fileStorage?owner=' + owner + (parent != owner ? '&parent=' + parent : ''), {
-            headers: {
-                'Authorization': 'Bearer ' + user.jwt
-            }
-        })
+        const res = await api({user}).get('/fileStorage?owner=' + owner + (parent != owner ? '&parent=' + parent : ''));
 
-        const data = await res.json()
+        const data = res.data;
 
         logger.info(data)
 
@@ -363,15 +362,11 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {webdav.VirtualFileWritable}   Writable stream
      */
     async retrieveSignedUrl (path: Path, user: User): Promise<string> {
-        const res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl?file=' + this.getID(path, user), {
-            headers: {
-                'Authorization': 'Bearer ' + user.jwt
-            }
-        })
+        const res = await api({user}).get('/fileStorage/signedUrl?file=' + this.getID(path, user));
 
-        const data = await res.json()
+        const data = res.data;
 
-        return data.url
+        return data.url;
     }
 
     async _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : Promise<void> {
@@ -390,8 +385,8 @@ class WebFileSystem extends webdav.FileSystem {
                 // TODO: URL should be cached in resources (but needs to be renewed sometimes)
 
                 if (url) {
-                    const file = await fetch(url)
-                    const buffer = await file.buffer()
+                    const file = await api({}).get(url, { responseType: 'arraybuffer' })
+                    const buffer = await file.data
 
                     callback(null, new webdav.VirtualFileReadable([ buffer ]))
                 } else {
@@ -535,16 +530,9 @@ class WebFileSystem extends webdav.FileSystem {
                 body['owner'] = owner
             }
 
-            const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories' : '/files/new'), {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + user.jwt,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(body)
-            })
+            const res = await api({user , json: true}).post('/fileStorage' + (type.isDirectory ? '/directories' : '/files/new'), body);
 
-            const data = await res.json()
+            const data = res.data;
 
             logger.info(data)
 
@@ -610,14 +598,10 @@ class WebFileSystem extends webdav.FileSystem {
     async deleteResource (path: Path, user: User) : Promise<Error> {
         if (this.resources.get(user.uid).get(path.toString()).permissions?.delete) {
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
-            const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories?_id=' : '?_id=') + this.getID(path, user), {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': 'Bearer ' + user.jwt
-                }
-            })
 
-            const data = await res.json()
+            const res = await api({user}).delete('/fileStorage' + (type.isDirectory ? '/directories?_id=' : '?_id=') + this.getID(path, user));
+
+            const data = res.data;
 
             logger.info(data)
 
@@ -665,30 +649,17 @@ class WebFileSystem extends webdav.FileSystem {
 
         let res
         if (this.resourceExists(path, user)) {
-            res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl/' + this.getID(path, user), {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': 'Bearer ' + user.jwt,
-                    'Content-Type': 'application/json'
-                }
-            })
+            res = await api({user, json: true}).patch('/fileStorage/signedUrl/' + this.getID(path, user))
         } else {
-            res = await fetch(environment.BASE_URL + '/fileStorage/signedUrl', {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + user.jwt,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    filename,
-                    fileType: contentType,
-                    parent: this.getOwnerID(path, user) != parent ? parent : undefined,
-                    action: 'putObject'
-                })
+            res = await api({user, json: true}).post('/fileStorage/signedUrl', {
+                filename,
+                fileType: contentType,
+                parent: this.getOwnerID(path, user) != parent ? parent : undefined,
+                action: 'putObject'
             })
         }
 
-        const data = await res.json()
+        const data = res.data
 
         logger.info(data)
 
@@ -696,13 +667,14 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     async writeToSignedUrl (url: string, header: any, content: Array<any>): Promise<void> {
-        await fetch(url, {
-            method: 'PUT',
+        logger.error(url)
+        await api({}).put(url,
+            Buffer.concat(content),
+            {
             headers: {
                 ...header
             },
-            body: Buffer.concat(content),
-        })
+        }).catch((error) => { logger.error(error)})
     }
 
     /*
@@ -734,16 +706,8 @@ class WebFileSystem extends webdav.FileSystem {
             body['owner'] = owner
         }
 
-        const res = await fetch(environment.BASE_URL + '/fileStorage', {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + user.jwt,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-        })
-
-        return await res.json()
+        const res = await api({user, json: true}).post('/fileStorage', body)
+        return res.data
     }
 
     /*
@@ -815,23 +779,14 @@ class WebFileSystem extends webdav.FileSystem {
      *
      * @return {Promise<Error>}   Error or null depending on success of moving
      */
-    async moveResource(resourceID: string, newParentID: string, user: User) : Promise<Error> {
-        return await fetch(`${environment.BASE_URL}/fileStorage/${resourceID}`,{
-            method: 'PATCH',
-            headers: {
-                'Authorization': 'Bearer ' + user.jwt,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                parent: newParentID,
-            }),
-        }).then(() => {
-            //TODO: some error handling?
-            return null
-        }).catch(() => {
-            logger.error('File at moveResource() could not be moved', user.uid,resourceID,newParentID);
-            return webdav.Errors.Forbidden
-        } )
+    async moveResource(resourceID: string, newParentID: string, user: User) : Promise<any> {
+        return await api({user, json: true}).patch(
+            `/fileStorage/${resourceID}`,
+            {parent: newParentID}
+            ).then(() => null).catch(() => {
+                logger.error('File at moveResource() could not be moved', user.uid,resourceID,newParentID);
+                return webdav.Errors.Forbidden
+        })
     }
 
     async _move(pathFrom: Path, pathTo: Path, ctx: MoveInfo, callback: ReturnCallback<boolean>): Promise<void> {
@@ -880,27 +835,18 @@ class WebFileSystem extends webdav.FileSystem {
             // TODO: Check new name for unallowed characters (for example question mark)
 
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
-            const res = await fetch(environment.BASE_URL + '/fileStorage' + (type.isDirectory ? '/directories' : '') + '/rename', {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + user.jwt,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    id: this.getID(path, user),
-                    newName
-                })
-            }).then((res) => res.json())
 
-            if(res.ok){
+            return await api({user,json:true}).post('/fileStorage' + (type.isDirectory ? '/directories' : '') + '/rename', {
+                id: this.getID(path, user),
+                newName
+            }).then(() => {
                 this.resources.get(user.uid).set(path.getParent().getChildPath(newName).toString(), this.resources.get(user.uid).get(path.toString()))
                 this.resources.get(user.uid).delete(path.toString())
                 logger.info(`File at ${path.toString()} now named ${newName}`);
-                return null
-            }else{
-                logger.error(res)
+            }).catch((error) => {
+                logger.error(error)
                 return webdav.Errors.InvalidOperation
-            }
+            })
         } else {
             return webdav.Errors.Forbidden
         }
