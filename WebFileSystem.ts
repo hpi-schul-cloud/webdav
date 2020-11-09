@@ -45,6 +45,7 @@ class WebFileSystemSerializer implements webdav.FileSystemSerializer {
 class WebFileSystem extends webdav.FileSystem {
     props: webdav.IPropertyManager;
     locks: webdav.ILockManager;
+    // TODO: Interface for resource
     resources: Map<string, Map<string, any>>
     rootPath: string
 
@@ -526,45 +527,48 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<Error>}   Error or null depending on success of creation
      */
     async createResource (path: Path, user: User, type: webdav.ResourceType) : Promise<Error> {
-        // TODO: Handle permissions
+        if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.resources.get(user.uid).get(path.getParent().toString()).permissions.create) {
+            if (type.isDirectory || mime.extension(mime.lookup(path.fileName())) in ['docx', 'pptx', 'xlsx']) {
+                const owner = this.getOwnerID(path, user)
+                const parent = this.getParentID(path.getParent(), user)
 
-        if (type.isDirectory || mime.extension(mime.lookup(path.fileName())) in ['docx', 'pptx', 'xlsx']) {
-            const owner = this.getOwnerID(path, user)
-            const parent = this.getParentID(path.getParent(), user)
+                const body = {
+                    name: path.fileName(),
+                    parent: (parent != owner) ? parent : undefined
+                }
 
-            const body = {
-                name: path.fileName(),
-                parent: (parent != owner) ? parent : undefined
-            }
+                if (owner !== user.uid) {
+                    body['owner'] = owner
+                }
 
-            if (owner !== user.uid) {
-                body['owner'] = owner
-            }
+                const res = await api({user , json: true}).post('/fileStorage' + (type.isDirectory ? '/directories' : '/files/new'), body);
 
-            const res = await api({user , json: true}).post('/fileStorage' + (type.isDirectory ? '/directories' : '/files/new'), body);
+                const data = res.data;
 
-            const data = res.data;
+                logger.info(data)
 
-            logger.info(data)
-
-            if (data._id) {
-                this.addFileToResources(path, user, data)
+                if (data._id) {
+                    this.addFileToResources(path, user, data)
+                } else {
+                    return webdav.Errors.Forbidden
+                }
             } else {
-                return webdav.Errors.Forbidden
+                const data = await this.requestWritableSignedUrl(path, user)
+                await this.writeToSignedUrl(data.url, data.header, [])
+                const file = await this.writeToFileStorage(path, user, data.header, [])
+
+                logger.info(file)
+
+                if (file._id) {
+                    this.addFileToResources(path, user, file)
+                } else {
+                    return webdav.Errors.Forbidden
+                }
             }
         } else {
-            const data = await this.requestWritableSignedUrl(path, user)
-            await this.writeToSignedUrl(data.url, data.header, [])
-            const file = await this.writeToFileStorage(path, user, data.header, [])
-
-            logger.info(file)
-
-            if (file._id) {
-                this.addFileToResources(path, user, file)
-            } else {
-                return webdav.Errors.Forbidden
-            }
+            return webdav.Errors.Forbidden
         }
+
 
         return null
     }
