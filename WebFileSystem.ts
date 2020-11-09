@@ -667,7 +667,6 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     async writeToSignedUrl (url: string, header: any, content: Array<any>): Promise<void> {
-        logger.error(url)
         await api({}).put(url,
             Buffer.concat(content),
             {
