@@ -480,10 +480,16 @@ class WebFileSystem extends webdav.FileSystem {
      */
     async createResource (path: Path, user: User, type: webdav.ResourceType) : Promise<Error> {
         // TODO: Handle permissions
+
+        // checks if file already exists and if filename contains bad characters (e.g. "§%?&....")
         if (this.resources.get(user.uid).has(path.toString())) {
             logger.info(`Resource ${path} already exists.`)            
             return webdav.Errors.ResourceAlreadyExists
+        } else if (path.fileName() !== encodeURI(path.fileName())){
+            logger.info(`Resourcename ${path.fileName()} not allowed.`)
+            return new Error('The Name of the Resource contains forbidden characters')
         }
+
         if (type.isDirectory || mime.extension(mime.lookup(path.fileName())) in ['docx', 'pptx', 'xlsx']) {
             let owner
             let parent
