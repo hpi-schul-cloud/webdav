@@ -181,6 +181,8 @@ class WebFileSystem extends webdav.FileSystem {
 
 
             return data['data'].map((resource) => resource.name)
+        } else {
+            return await this.loadDirectory(new Path([]), user)
         }
     }
 
@@ -851,8 +853,6 @@ class WebFileSystem extends webdav.FileSystem {
             return webdav.Errors.Forbidden
         }
     }
-
-   // TODO: Fix some weird issues regarding 'my' directory and 404 errors
 
    async _rename(pathFrom: Path, newName: string, ctx: RenameInfo, callback: ReturnCallback<boolean>): Promise<void> {
         logger.info("Renaming file: " + pathFrom + " --> " + newName)
