@@ -162,6 +162,9 @@ class WebFileSystem extends webdav.FileSystem {
             const res = await api({user}).get(url, {params: qs})
 
             const data = res.data
+
+            logger.info(data)
+
             // TODO: make this look fancy :)
             let adder
             if (this.rootPath === 'shared'){
@@ -241,11 +244,17 @@ class WebFileSystem extends webdav.FileSystem {
 
         logger.info(data)
 
+        const resources = []
         for (const resource of data) {
-            // TODO: Check read permissions and handle accordingly
-            this.addFileToResources(path.getChildPath(resource.name), user, resource)
+            const resourceEntry = this.addFileToResources(path.getChildPath(resource.name), user, resource)
+
+            if (resourceEntry.permissions.read) {
+                resources.push(resource.name)
+            }
+
         }
-        return data.map((resource) => resource.name)
+
+        return resources
     }
 
     /*
@@ -289,6 +298,8 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<number>}   Metadata value
      */
     async getMetadata(path: Path, key: string, user: User) : Promise<number> {
+        // TODO: Renew values regularly
+
         if (this.resourceExists(path, user)) {
             const value = this.resources.get(user.uid).get(path.toString())[key]
             if (value) {
@@ -326,7 +337,7 @@ class WebFileSystem extends webdav.FileSystem {
      * @param {any} file           File JSON-Object returned by server
      *
      */
-    addFileToResources (path: Path, user: User, file: any): void {
+    addFileToResources (path: Path, user: User, file: any): any {
         const creationDate = new Date(file.createdAt)
         const lastModifiedDate = new Date(file.updatedAt)
         const permissions = this.populatePermissions(file.permissions, user)
@@ -343,14 +354,18 @@ class WebFileSystem extends webdav.FileSystem {
            logger.info(await permissionRes.json())
         */
 
-        this.resources.get(user.uid).set(path.toString(), {
+        const resource = {
             type: file.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
             id: file._id,
             size: file.size,
             creationDate: creationDate.getTime(),
             lastModifiedDate: lastModifiedDate.getTime(),
             permissions
-        });
+        }
+
+        this.resources.get(user.uid).set(path.toString(), resource);
+
+        return resource
     }
 
     /*
@@ -384,8 +399,6 @@ class WebFileSystem extends webdav.FileSystem {
 
                 logger.info("Signed URL: " + url)
 
-                // TODO: URL should be cached in resources (but needs to be renewed sometimes)
-
                 if (url) {
                     const file = await api({}).get(url, { responseType: 'arraybuffer' })
                     const buffer = await file.data
@@ -409,11 +422,7 @@ class WebFileSystem extends webdav.FileSystem {
             const user: User = <User> info.context.user
             this.createUserFileSystem(user.uid)
             if (path.isRoot()) {
-                if (this.rootPath === 'my') {
-                    callback(null, await this.loadDirectory(path, user))
-                } else {
-                    callback(null, await this.loadRootDirectories(user))
-                }
+                callback(null, await this.loadRootDirectories(user))
             } else {
                 if (this.resourceExists(path, user)) {
                     const resources = await this.loadDirectory(path, user)
@@ -550,7 +559,6 @@ class WebFileSystem extends webdav.FileSystem {
 
             logger.info(file)
 
-            // Can not create default Permissions
             if (file._id) {
                 this.addFileToResources(path, user, file)
             } else {
