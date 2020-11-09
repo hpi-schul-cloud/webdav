@@ -480,7 +480,10 @@ class WebFileSystem extends webdav.FileSystem {
      */
     async createResource (path: Path, user: User, type: webdav.ResourceType) : Promise<Error> {
         // TODO: Handle permissions
-
+        if (this.resources.get(user.uid).has(path.toString())) {
+            logger.info(`Resource ${path} already exists.`)            
+            return webdav.Errors.ResourceAlreadyExists
+        }
         if (type.isDirectory || mime.extension(mime.lookup(path.fileName())) in ['docx', 'pptx', 'xlsx']) {
             let owner
             let parent
