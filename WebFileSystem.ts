@@ -42,11 +42,25 @@ class WebFileSystemSerializer implements webdav.FileSystemSerializer {
     }
 }
 
+interface Resource {
+    id: string,
+    type: webdav.ResourceType,
+    size: number,
+    creationDate: number,
+    lastModifiedDate: number,
+    permissions: {
+        read: boolean,
+        write: boolean,
+        delete: boolean,
+        create: boolean
+    }
+}
+
 class WebFileSystem extends webdav.FileSystem {
     props: webdav.IPropertyManager;
     locks: webdav.ILockManager;
     // TODO: Interface for resource
-    resources: Map<string, Map<string, any>>
+    resources: Map<string, Map<string, Resource>>
     rootPath: string
 
     constructor (rootPath?: string) {
@@ -174,7 +188,11 @@ class WebFileSystem extends webdav.FileSystem {
                 adder = (path: Path, user: User, resource : any) => {
                     this.resources.get(user.uid).set(path.toString(), {
                         type: webdav.ResourceType.Directory,
-                        id: resource._id
+                        id: resource._id,
+                        size: null,
+                        creationDate: null,
+                        lastModifiedDate: null,
+                        permissions: null
                    });
                 }
             }
@@ -338,7 +356,7 @@ class WebFileSystem extends webdav.FileSystem {
      * @param {any} file           File JSON-Object returned by server
      *
      */
-    addFileToResources (path: Path, user: User, file: any): any {
+    addFileToResources (path: Path, user: User, file: any): Resource {
         const creationDate = new Date(file.createdAt)
         const lastModifiedDate = new Date(file.updatedAt)
         const permissions = this.populatePermissions(file.permissions, user)
