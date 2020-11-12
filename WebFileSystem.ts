@@ -791,10 +791,15 @@ class WebFileSystem extends webdav.FileSystem {
 
             if (!this.resourceExists(path, user)) {
                 const file = await this.writeToFileStorage(path, user, data.header, contents)
-
-                if (!this.resourceExists(path, user)) {
-                    this.addFileToResources(path, user, file)
-                }
+                this.addFileToResources(path, user, file)
+            } else {
+                const res = await api({user, json: true}).patch('/files/' + this.getID(path, user), {
+                    size: Buffer.concat(contents).byteLength,
+                    updatedAt: new Date().toISOString()
+                })
+                this.resources.get(user.uid).get(path.toString()).size = Buffer.concat(contents).byteLength
+                this.resources.get(user.uid).get(path.toString()).lastModifiedDate = Date.now()
+                logger.info(res.data)
             }
         })
 
