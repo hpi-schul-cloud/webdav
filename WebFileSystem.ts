@@ -787,8 +787,6 @@ class WebFileSystem extends webdav.FileSystem {
             const data = await this.requestWritableSignedUrl(path, user)
             await this.writeToSignedUrl(data.url, data.header, contents)
 
-            // TODO: At the moment it doesn't update file size and lastModified-Date
-
             if (!this.resourceExists(path, user)) {
                 const file = await this.writeToFileStorage(path, user, data.header, contents)
                 this.addFileToResources(path, user, file)
