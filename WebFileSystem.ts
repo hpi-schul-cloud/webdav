@@ -238,6 +238,8 @@ class WebFileSystem extends webdav.FileSystem {
         }
     }
 
+    // TODO: Test permissions in several cases
+
     /*
      * Populates permissions by combining user and roles permissions
      *
@@ -789,6 +791,8 @@ class WebFileSystem extends webdav.FileSystem {
             logger.info(Buffer.concat(contents).toString())
             await this.writeToSignedUrl(data.url, data.header, contents)
 
+            // TODO: At the moment it doesn't update file size and lastModified-Date
+
             if (!this.resourceExists(path, user)) {
                 const file = await this.writeToFileStorage(path, user, data.header, contents)
 
@@ -800,6 +804,8 @@ class WebFileSystem extends webdav.FileSystem {
 
         return stream
     }
+
+    // TODO: Test overwriting (doesn't seem to work)
 
     async _openWriteStream(path: Path, ctx: OpenWriteStreamInfo, callback: ReturnCallback<Writable>): Promise<void> {
         logger.info("Writing file: " + path)
@@ -819,7 +825,7 @@ class WebFileSystem extends webdav.FileSystem {
                     const buffer = await file.buffer()
                      */
 
-                    callback(null, await this.processStream(path, user, [ ]))
+                    callback(null, await this.processStream(path, user, []))
                 } else {
                     callback(webdav.Errors.Forbidden)
                 }
