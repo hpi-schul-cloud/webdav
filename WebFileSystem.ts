@@ -89,7 +89,6 @@ interface WritableURLResponse {
 class WebFileSystem extends webdav.FileSystem {
     props: webdav.IPropertyManager;
     locks: webdav.ILockManager;
-    // TODO: Interface for resource
     resources: Map<string, Map<string, Resource>>
     rootPath: string
 
@@ -349,8 +348,6 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<number>}   Metadata value
      */
     async getMetadata(path: Path, key: string, user: User) : Promise<number> {
-        // TODO: Renew values regularly
-
         if (this.resourceExists(path, user)) {
             const value = this.resources.get(user.uid).get(path.toString())[key]
             if (value) {
@@ -805,8 +802,6 @@ class WebFileSystem extends webdav.FileSystem {
         return stream
     }
 
-    // TODO: Test overwriting (doesn't seem to work)
-
     async _openWriteStream(path: Path, ctx: OpenWriteStreamInfo, callback: ReturnCallback<Writable>): Promise<void> {
         logger.info("Writing file: " + path)
 
@@ -816,15 +811,6 @@ class WebFileSystem extends webdav.FileSystem {
 
             if (this.resourceExists(path, user)) {
                 if (this.resources.get(user.uid).get(path.toString()).permissions?.write) {
-
-                    // This part causes some problems by only appending to the content and not editing, so I will comment it for now (maybe it's not needed at all)
-                    /*
-                    const url = await this.retrieveSignedUrl(path, user)
-
-                    const file = await fetch(url)
-                    const buffer = await file.buffer()
-                     */
-
                     callback(null, await this.processStream(path, user, []))
                 } else {
                     callback(webdav.Errors.Forbidden)
