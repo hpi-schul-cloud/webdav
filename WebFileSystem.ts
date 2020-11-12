@@ -785,7 +785,6 @@ class WebFileSystem extends webdav.FileSystem {
 
         stream.on('finish', async () => {
             const data = await this.requestWritableSignedUrl(path, user)
-            logger.info(Buffer.concat(contents).toString())
             await this.writeToSignedUrl(data.url, data.header, contents)
 
             // TODO: At the moment it doesn't update file size and lastModified-Date
