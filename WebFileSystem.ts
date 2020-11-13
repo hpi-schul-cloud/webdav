@@ -780,7 +780,8 @@ class WebFileSystem extends webdav.FileSystem {
      *
      * @return {webdav.VirtualFileWritable}   Writable stream
      */
-    processStream(path: Path, user: User, contents: Array<any>): webdav.VirtualFileWritable {
+    processStream(path: Path, user: User): webdav.VirtualFileWritable {
+        const contents = []
         const stream = new webdav.VirtualFileWritable(contents)
 
         stream.on('finish', async () => {
@@ -813,12 +814,12 @@ class WebFileSystem extends webdav.FileSystem {
 
             if (this.resourceExists(path, user)) {
                 if (this.resources.get(user.uid).get(path.toString()).permissions?.write) {
-                    callback(null, await this.processStream(path, user, []))
+                    callback(null, await this.processStream(path, user))
                 } else {
                     callback(webdav.Errors.Forbidden)
                 }
             } else {
-                callback(null, await this.processStream(path, user, []))
+                callback(null, await this.processStream(path, user))
             }
         } else {
             callback(webdav.Errors.BadAuthentication)
