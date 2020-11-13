@@ -8,6 +8,7 @@ export default class User implements IUser {
     password: string;
     jwt: string;
     roles: Array<string>
+    permissions: Array<string>
 
     constructor(uid: string, username: string, password: string, jwt: string) {
         this.uid = uid
@@ -15,6 +16,7 @@ export default class User implements IUser {
         this.password = password
         this.jwt = jwt
         this.roles = []
+        this.permissions = []
     }
 
     /*
@@ -26,14 +28,16 @@ export default class User implements IUser {
 
         const res = await api({user : this}).get('/roles/user/' + this.uid);
 
-        // TODO: Store user permissions
-
         logger.info(res.data)
 
         for (const role of res.data) {
             this.roles.push(role.id)
-            const nestedRoles = role.roles
-            for (const nestedRole of nestedRoles) {
+            role.permissions.forEach((permission) => {
+                if (!this.permissions.includes(permission)) {
+                    this.permissions.push(permission)
+                }
+            })
+            for (const nestedRole of role.roles) {
                 this.roles.push(nestedRole)
                 await this.getNestedRoles(nestedRole)
             }
@@ -50,5 +54,11 @@ export default class User implements IUser {
             this.roles.push(role)
             await this.getNestedRoles(role)
         }
+
+        res.data.permissions.forEach((permission) => {
+            if (!this.permissions.includes(permission)) {
+                this.permissions.push(permission)
+            }
+        })
     }
 }
