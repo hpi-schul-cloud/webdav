@@ -485,7 +485,7 @@ class WebFileSystem extends webdav.FileSystem {
         if (this.resources.get(user.uid).has(path.toString())) {
             logger.info(`Resource ${path} already exists.`)            
             return webdav.Errors.ResourceAlreadyExists
-        } else if (path.fileName() !== encodeURI(path.fileName())){
+        } else if (!path.fileName().match(/^[^!@#$%^&*()\[\]\+=,<>\?\/\|~{}]*$/)){
             logger.info(`Resourcename ${path.fileName()} not allowed.`)
             return new Error('The Name of the Resource contains forbidden characters')
         }
