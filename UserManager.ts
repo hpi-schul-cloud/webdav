@@ -12,6 +12,7 @@ export default class UserManager implements ITestableUserManager, IListUserManag
     users: Map<string, User>
 
     constructor() {
+        // TODO: Clear list regularly (sometimes there are 'ghost' files when changed in web client)
         this.users = new Map()
     }
 

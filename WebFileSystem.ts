@@ -573,6 +573,7 @@ class WebFileSystem extends webdav.FileSystem {
 
             return null
         } else {
+            logger.info(this.resources.get(user.uid).get(path.toString()).permissions)
             return webdav.Errors.Forbidden
         }
     }
