@@ -105,7 +105,7 @@ class WebFileSystem extends webdav.FileSystem {
             const res = await api({user}).get(url, {params: qs})
 
             const data = res.data
-            
+
             // TODO: make this look fancy :)
             let adder
             if (this.rootPath === 'shared'){
@@ -122,7 +122,7 @@ class WebFileSystem extends webdav.FileSystem {
             for (const resource of data.data) {
                 adder(new Path([resource.name]), user, resource)
             }
-            
+
 
             return data['data'].map((resource) => resource.name)
         }
@@ -329,7 +329,7 @@ class WebFileSystem extends webdav.FileSystem {
         const res = await api({user}).get('/fileStorage/signedUrl?file=' + this.resources.get(user.uid).get(path.toString()).id);
 
         const data = res.data;
-        
+
         return data.url;
     }
 
@@ -502,7 +502,7 @@ class WebFileSystem extends webdav.FileSystem {
             }
 
             const res = await api({user , json: true}).post('/fileStorage' + (type.isDirectory ? '/directories' : '/files/new'), body);
-            
+
             const data = res.data;
 
             logger.info(data)
@@ -558,11 +558,13 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<Error>}   Error or null depending on success of deletion
      */
     async deleteResource (path: Path, user: User) : Promise<Error> {
+        // TODO: Check inconsistencies with web client
+
         if (this.resources.get(user.uid).get(path.toString()).permissions?.delete) {
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
 
             const res = await api({user}).delete('/fileStorage' + (type.isDirectory ? '/directories?_id=' : '?_id=') + this.resources.get(user.uid).get(path.toString()).id);
- 
+
             const data = res.data;
 
             logger.info(data)
@@ -743,7 +745,7 @@ class WebFileSystem extends webdav.FileSystem {
      */
     async moveResource(resourceID: string, newParentID: string, user: User) : Promise<any> {
         return await api({user, json: true}).patch(
-            `/fileStorage/${resourceID}`, 
+            `/fileStorage/${resourceID}`,
             {parent: newParentID}
             ).then(() => null).catch(() => {
                 logger.error('File at moveResource() could not be moved', user.uid,resourceID,newParentID);
