@@ -575,7 +575,9 @@ class WebFileSystem extends webdav.FileSystem {
      */
     async createResource (path: Path, user: User, type: webdav.ResourceType) : Promise<Error> {
         if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.resources.get(user.uid).get(path.getParent().toString()).permissions.create) {
-            if (type.isDirectory || mime.extension(mime.lookup(path.fileName())) in ['docx', 'pptx', 'xlsx']) {
+            if (type.isDirectory || ['docx', 'pptx', 'xlsx'].includes(mime.extension(mime.lookup(path.fileName())))) {
+                logger.info('Trying to create directory or ' + mime.extension(mime.lookup(path.fileName())) + '-file...')
+
                 const owner = this.getOwnerID(path, user)
                 const parent = this.getParentID(path.getParent(), user)
 
@@ -600,6 +602,8 @@ class WebFileSystem extends webdav.FileSystem {
                     return webdav.Errors.Forbidden
                 }
             } else {
+                logger.info('Trying to create normal file...')
+
                 const data = await this.requestWritableSignedUrl(path, user)
                 await this.writeToSignedUrl(data.url, data.header, [])
                 const file = await this.writeToFileStorage(path, user, data.header, [])
