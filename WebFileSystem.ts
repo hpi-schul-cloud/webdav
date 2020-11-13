@@ -240,10 +240,10 @@ class WebFileSystem extends webdav.FileSystem {
     /*
      * Populates permissions by combining user and roles permissions
      *
-     * @param {Array<any>} permissions   Permissions of one file or directory
+     * @param {Array<Permissions>} permissions   Permissions of one file or directory
      * @param {User} user   Current user
      *
-     * @return {any}  Permission object containing write, read, create and delete permissions
+     * @return {Permissions}  Permission object containing write, read, create and delete permissions
      */
     populatePermissions(permissions: Array<Permissions>, user: User): Permissions {
         const filePermissions = {
@@ -380,8 +380,9 @@ class WebFileSystem extends webdav.FileSystem {
      *
      * @param {Path} path         Path to resource
      * @param {User} user           Current user
-     * @param {any} file           File JSON-Object returned by server
+     * @param {ResourceResponse} file           File JSON-Object returned by server
      *
+     * @return {Resource}       Resource object saved to this.resources
      */
     addFileToResources (path: Path, user: User, file: ResourceResponse): Resource {
         const creationDate = new Date(file.createdAt)
@@ -419,10 +420,8 @@ class WebFileSystem extends webdav.FileSystem {
      *
      * @param {Path} path               Path to resource
      * @param {User} user               Current user
-     * @param {User} user               Current user
-     * @param {Array<any>} contents     Contents of stream
      *
-     * @return {webdav.VirtualFileWritable}   Writable stream
+     * @return {Promise<string>}   Signed URL
      */
     async retrieveSignedUrl (path: Path, user: User): Promise<string> {
         const res = await api({user}).get('/fileStorage/signedUrl?file=' + this.getID(path, user));
@@ -721,7 +720,7 @@ class WebFileSystem extends webdav.FileSystem {
      * @param {Path} path               Path to resource
      * @param {User} user               Current user
      *
-     * @return {Promise<any>}   JSON-Response of SC-Server containing URL and header.
+     * @return {Promise<WritableURLResponse>}   JSON-Response of SC-Server containing URL and header.
      */
     async requestWritableSignedUrl (path: Path, user: User): Promise<WritableURLResponse> {
         const filename = path.fileName()
@@ -762,10 +761,10 @@ class WebFileSystem extends webdav.FileSystem {
      *
      * @param {Path} path               Path to resource
      * @param {User} user               Current user
-     * @param {any} header              S3-Header returned by S3-Request
-     * @param {Array<any>} contents     Contents of stream
+     * @param {S3Header} header              S3-Header returned by S3-Request
+     * @param {ReadonlyArray<Uint8Array>} contents     Contents of stream
      *
-     * @return {Promise<any>}   File Object of the new file
+     * @return {Promise<ResourceResponse>}   File Object of the new file
      */
     async writeToFileStorage (path: Path, user: User, header: S3Header, content: ReadonlyArray<Uint8Array>): Promise<ResourceResponse> {
         const owner = this.getOwnerID(path, user)
@@ -795,8 +794,6 @@ class WebFileSystem extends webdav.FileSystem {
      *
      * @param {Path} path               Path to resource
      * @param {User} user               Current user
-     * @param {User} user               Current user
-     * @param {Array<any>} contents     Contents of stream
      *
      * @return {webdav.VirtualFileWritable}   Writable stream
      */
