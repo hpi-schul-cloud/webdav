@@ -1,5 +1,6 @@
 import {IUser} from "webdav-server/lib/user/v2/IUser";
 import api from './api';
+import logger from "./logger";
 
 export default class User implements IUser {
     uid: string;
@@ -24,6 +25,10 @@ export default class User implements IUser {
         // TODO: Implement logic on SC-server instead of webdav with a specific flag
 
         const res = await api({user : this}).get('/roles/user/' + this.uid);
+
+        // TODO: Store user permissions
+
+        logger.info(res.data)
 
         for (const role of res.data) {
             this.roles.push(role.id)

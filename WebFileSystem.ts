@@ -671,7 +671,7 @@ logger.info(data)
      * @return {Promise<Error>}   Error or null depending on success of deletion
      */
     async deleteResource (path: Path, user: User) : Promise<Error> {
-        // TODO: Check inconsistencies with web client
+        // TODO: Web Client checks user permissions instead of file permissions
 
         if (this.resources.get(user.uid).get(path.toString()).permissions?.delete) {
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
