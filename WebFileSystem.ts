@@ -509,7 +509,7 @@ class WebFileSystem extends webdav.FileSystem {
                 if (await this.loadPath(path, user)) {
                     callback(null, this.resources.get(user.uid).get(path.toString()).type)
                 } else {
-                    logger.error('File could not be found!')
+                    logger.error(`WebFileSystem._type : File could not be found! uid: ${info.context.user.uid} path: ${path}`)
                     callback(webdav.Errors.ResourceNotFound)
                 }
             }
