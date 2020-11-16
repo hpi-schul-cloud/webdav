@@ -487,7 +487,7 @@ class WebFileSystem extends webdav.FileSystem {
             return webdav.Errors.ResourceAlreadyExists
         } else if (path.fileName().match(/[!@#$%^&*()\[\]\+=,<>\?\/\|~{}]+/)){
             logger.info(`Resourcename ${path.fileName()} not allowed.`)
-            return new Error('The Name of the Resource contains forbidden characters')
+            return webdav.Errors.IllegalArguments
         }
 
         if (type.isDirectory || mime.extension(mime.lookup(path.fileName())) in ['docx', 'pptx', 'xlsx']) {
