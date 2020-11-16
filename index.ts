@@ -6,9 +6,6 @@ import logger from './logger';
 import {environment} from './config/globals';
 import Propfind from "webdav-server/lib/server/v2/commands/Propfind";
 
-
-// TODO: User Management (same credentials as in web client)
-
 const userManager = new UserManager()
 
 const server = new webdav.WebDAVServer({
