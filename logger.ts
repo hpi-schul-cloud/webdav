@@ -3,7 +3,7 @@ import {environment} from './config/globals';
 
 const errorFormat = winston.format.combine(
     winston.format.timestamp({
-        format: 'YYYY-MM-DD hh:mm:ss'
+        format: 'YYYY-MM-DD HH:mm:ss'
     }),
     winston.format.json()
 )
@@ -18,11 +18,11 @@ const consoleFormat = winston.format.combine(
 const logger = winston.createLogger({
     format: errorFormat,
     transports:[
-        // writes all logs with level 'error' to the error.log
+        // writes all logs with level 'warn' or higher ('error' too) to the error.log
         new winston.transports.File({
             filename: 'logs/error.log',
-            level: 'error',
-            maxsize: 5242880, // 5MB
+            level: 'warn',
+            maxsize: 10485760, // 10MB
         }),
     ],
 })
