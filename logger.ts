@@ -1,8 +1,22 @@
 import * as winston from 'winston';
 import {environment} from './config/globals';
 
+const errorFormat = winston.format.combine(
+    winston.format.timestamp({
+        format: 'YYYY-MM-DD hh:mm:ss'
+    }),
+    winston.format.json()
+)
+
+const consoleFormat = winston.format.combine(
+    winston.format.colorize({ message: true }),
+    winston.format.printf((info) => {
+        const timeStamp = new Date().toTimeString().split(' ')[0];
+        return `[${timeStamp}] ${info.message}`;}),
+) 
+
 const logger = winston.createLogger({
-    format: winston.format.json(),
+    format: errorFormat,
     transports:[
         // writes all logs with level 'error' to the error.log
         new winston.transports.File({
@@ -12,13 +26,6 @@ const logger = winston.createLogger({
         }),
     ],
 })
-
-const consoleFormat = winston.format.combine(
-    winston.format.colorize({ message: true }),
-    winston.format.printf((info) => {
-        const timeStamp = new Date().toTimeString().split(' ')[0];
-        return `[${timeStamp}] ${info.message}`;}),
-) 
 
 // if we are not in production then log (everything) to console
 if (environment.NODE_ENV !== 'production') {
