@@ -585,7 +585,7 @@ class WebFileSystem extends webdav.FileSystem {
         if (this.resourceExists(path, user)) {
             logger.info(`Resource ${path} already exists.`)
             return webdav.Errors.ResourceAlreadyExists
-        } else if (path.fileName().match(/[!@#$%^&*()\[\]\+=,<>\?\/\|~{}]+/)){
+        } else if (path.fileName().match(/[!@#$%^&*()[\]+=,<>?/|~{}]+/)){
             logger.info(`Resourcename ${path.fileName()} not allowed.`)
             return webdav.Errors.IllegalArguments
         }
