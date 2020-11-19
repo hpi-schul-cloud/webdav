@@ -580,10 +580,10 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<Error>}   Error or null depending on success of creation
      */
     async createResource (path: Path, user: User, type: webdav.ResourceType) : Promise<Error> {
-        
+
         // checks if file already exists and if filename contains bad characters (e.g. "§%?&....")
-        if (this.resources.get(user.uid).has(path.toString())) {
-            logger.info(`Resource ${path} already exists.`)            
+        if (this.resourceExists(path, user)) {
+            logger.info(`Resource ${path} already exists.`)
             return webdav.Errors.ResourceAlreadyExists
         } else if (path.fileName().match(/[!@#$%^&*()\[\]\+=,<>\?\/\|~{}]+/)){
             logger.info(`Resourcename ${path.fileName()} not allowed.`)
