@@ -4,7 +4,6 @@ import {IUser} from "webdav-server/lib/user/v2/IUser";
 import User from "./User";
 import {v2 as webdav} from "webdav-server";
 import api from './api'
-import {environment} from './config/globals';
 import logger from './logger';
 
 export default class UserManager implements ITestableUserManager, IListUserManager {

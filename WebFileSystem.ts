@@ -58,7 +58,8 @@ interface Resource {
 
 interface ResourceResponse {
     _id: string,
-    isDirectory: boolean
+    name: string,
+    isDirectory: boolean,
     createdAt: string,
     updatedAt: string,
     permissions: Permissions[],
@@ -286,7 +287,7 @@ logger.info(data)
 
         const res = await api({user}).get('/fileStorage?owner=' + owner + (parent != owner ? '&parent=' + parent : ''));
 
-        const data = res.data;
+        const data: ResourceResponse[] = res.data;
 
         logger.info(data)
 
@@ -294,8 +295,13 @@ logger.info(data)
         for (const resource of data) {
             const resourceEntry = this.addFileToResources(path.getChildPath(resource.name), user, resource)
 
+            logger.info('resource.permissions.read: ' + resourceEntry.permissions.read)
+
+            // TODO: Doesn't work as Web Client with teams, maybe need to fetch /files/permissions
             if (resourceEntry.permissions.read) {
                 resources.push(resource.name)
+            } else {
+                logger.info(resource.permissions)
             }
 
         }
@@ -671,9 +677,12 @@ logger.info(data)
      * @return {Promise<Error>}   Error or null depending on success of deletion
      */
     async deleteResource (path: Path, user: User) : Promise<Error> {
-        // TODO: Web Client checks user permissions instead of file permissions
 
-        if (this.resources.get(user.uid).get(path.toString()).permissions?.delete) {
+        // Web Client checks user permission instead of file permission
+        logger.info('FILE_DELETE: ' + user.permissions.includes('FILE_DELETE'))
+        logger.info('resource permission: ' + this.resources.get(user.uid).get(path.toString()).permissions?.delete)
+        // if (this.resources.get(user.uid).get(path.toString()).permissions?.delete) {
+        if (user.permissions.includes('FILE_DELETE')) {
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
 
             const res = await api({user}).delete('/fileStorage' + (type.isDirectory ? '/directories?_id=' : '?_id=') + this.getID(path, user));
