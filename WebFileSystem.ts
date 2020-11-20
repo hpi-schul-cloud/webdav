@@ -938,7 +938,6 @@ class WebFileSystem extends webdav.FileSystem {
     async renameResource (path: Path, user: User, newName: string) : Promise<Error> {
         if (this.resources.get(user.uid).get(path.toString()).permissions.write) {
 
-            // TODO: Check new name for unallowed characters (for example question mark)
             if(!this.validFileName(newName)){
                 logger.warn(`Resourcename: ${newName} not allowed.`)
                 return webdav.Errors.Forbidden
