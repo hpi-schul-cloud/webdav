@@ -48,13 +48,14 @@ interface Resource {
     size: number,
     creationDate: number,
     lastModifiedDate: number,
-    owner: boolean,
+    owner?: boolean,
     permissions: {
         read: boolean,
         write: boolean,
         delete: boolean,
         create: boolean
-    }
+    },
+    role?: string,
 }
 
 interface ResourceResponse {
@@ -222,7 +223,6 @@ class WebFileSystem extends webdav.FileSystem {
                         size: null,
                         creationDate: null,
                         lastModifiedDate: null,
-                        owner: false,
                         permissions: null
                    });
                 }
@@ -230,6 +230,15 @@ class WebFileSystem extends webdav.FileSystem {
 
             for (const resource of data.data) {
                 adder(new Path([resource.name]), user, resource)
+
+                // TODO: Maybe can be integrated more beautiful
+                if (this.rootPath === 'teams') {
+                    const res = await api({user}).get('/teams/' + resource._id)
+
+                    logger.info(res.data)
+
+                    this.resources.get(user.uid).get('/' + resource.name).role = res.data.user.role
+                }
             }
 
 
@@ -247,7 +256,7 @@ class WebFileSystem extends webdav.FileSystem {
      *
      * @return {Permissions}  Permission object containing write, read, create and delete permissions
      */
-    async populatePermissions(id: string, user: User): Promise<Permissions> {
+    async populatePermissions(id: string, path: Path, user: User): Promise<Permissions> {
         const res = await api({ user }).get('/fileStorage/permission?file=' + id)
 
         const filePermissions = {
@@ -262,6 +271,13 @@ class WebFileSystem extends webdav.FileSystem {
             filePermissions.write = role.write ? true : filePermissions.write
             filePermissions.read = role.read ? true : filePermissions.read
         })
+
+        if (this.rootPath === '/teams') {
+            const rolePerms = res.data.find((role) => role.refId == this.resources.get(user.uid).get('/' + path.rootName()).role)
+
+            filePermissions.write = rolePerms.write ? true : filePermissions.write
+            filePermissions.read = rolePerms.read ? true : filePermissions.read
+        }
 
         return filePermissions
     }
@@ -387,7 +403,7 @@ class WebFileSystem extends webdav.FileSystem {
     async addFileToResources (path: Path, user: User, file: ResourceResponse): Promise<Resource> {
         const creationDate = new Date(file.createdAt)
         const lastModifiedDate = new Date(file.updatedAt)
-        const permissions = await this.populatePermissions(file._id, user)
+        const permissions = await this.populatePermissions(file._id, path, user)
 
         const resource: Resource = {
             type: file.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
