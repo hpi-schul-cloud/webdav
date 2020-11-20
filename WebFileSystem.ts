@@ -167,6 +167,17 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
+     * Returns true if the filename is valid
+     *
+     * @param {string} name   Name of the file
+     *
+     * @return {Boolean}    true if fileName is valid, false else
+     */
+    validFileName(name: string): Boolean{
+        if(name.match(/[#%^[\],<>?/|~{}]+/)){return false}
+        return true
+    }
+    /*
      * Loads the root directories of the user
      *
      * @param {User} user   Current user
@@ -585,7 +596,7 @@ class WebFileSystem extends webdav.FileSystem {
         if (this.resourceExists(path, user)) {
             logger.info(`Resource ${path} already exists.`)
             return webdav.Errors.ResourceAlreadyExists
-        } else if (path.fileName().match(/[#%^[\],<>?/|~{}]+/)){
+        } else if (!this.validFileName(path.fileName())){
             logger.info(`Resourcename ${path.fileName()} not allowed.`)
             return webdav.Errors.Forbidden
         }
@@ -928,7 +939,10 @@ class WebFileSystem extends webdav.FileSystem {
         if (this.resources.get(user.uid).get(path.toString()).permissions.write) {
 
             // TODO: Check new name for unallowed characters (for example question mark)
-
+            if(!this.validFileName(newName)){
+                logger.warn(`Resourcename: ${newName} not allowed.`)
+                return webdav.Errors.Forbidden
+            }
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
 
             return await api({user,json:true}).post('/fileStorage' + (type.isDirectory ? '/directories' : '') + '/rename', {
