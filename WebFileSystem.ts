@@ -206,7 +206,10 @@ class WebFileSystem extends webdav.FileSystem {
             const res = await api({user}).get(url, {params: qs})
 
             const data = res.data
-logger.info(data)
+            logger.info(data)
+
+            // TODO: If rootPath == 'teams' then the team role has to be stored
+
             // TODO: make this look fancy :)
             let adder
             if (this.rootPath === 'shared'){
@@ -236,8 +239,6 @@ logger.info(data)
         }
     }
 
-    // TODO: Test permissions in several cases
-
     /*
      * Populates permissions by combining user and roles permissions
      *
@@ -246,31 +247,21 @@ logger.info(data)
      *
      * @return {Permissions}  Permission object containing write, read, create and delete permissions
      */
-    populatePermissions(permissions: Array<Permissions>, user: User): Permissions {
+    async populatePermissions(id: string, user: User): Promise<Permissions> {
+        const res = await api({ user }).get('/fileStorage/permission?file=' + id)
+
         const filePermissions = {
             write: false,
             read: false,
-            create: false,
+            create: true,
             delete: false
         }
 
-        const userPerm = permissions.find(permission => permission.refPermModel === 'user' && permission.refId === user.uid)
-        if (userPerm) {
-            filePermissions.write = userPerm.write
-            filePermissions.read = userPerm.read
-            filePermissions.create = userPerm.create
-            filePermissions.delete = userPerm.delete
-        }
-
-        for (const role of user.roles) {
-            const rolePerm = permissions.find(permission => permission.refPermModel === 'role' && permission.refId === role)
-            if (rolePerm) {
-                filePermissions.write = rolePerm.write ? true : filePermissions.write
-                filePermissions.read = rolePerm.read ? true : filePermissions.read
-                filePermissions.create = rolePerm.create ? true : filePermissions.create
-                filePermissions.delete = rolePerm.delete ? true : filePermissions.delete
-            }
-        }
+        // TODO: Role in a specific team has to be loaded additionally
+        res.data.filter((role) => user.roles.includes(role.refId)).forEach((role) => {
+            filePermissions.write = role.write ? true : filePermissions.write
+            filePermissions.read = role.read ? true : filePermissions.read
+        })
 
         return filePermissions
     }
@@ -301,7 +292,7 @@ logger.info(data)
 
         const resources = []
         for (const resource of data) {
-            const resourceEntry = this.addFileToResources(path.getChildPath(resource.name), user, resource)
+            const resourceEntry = await this.addFileToResources(path.getChildPath(resource.name), user, resource)
 
             const res = await api({user}).get('/fileStorage/permission?file=' + resourceEntry.id)
 
@@ -393,22 +384,10 @@ logger.info(data)
      *
      * @return {Resource}       Resource object saved to this.resources
      */
-    addFileToResources (path: Path, user: User, file: ResourceResponse): Resource {
+    async addFileToResources (path: Path, user: User, file: ResourceResponse): Promise<Resource> {
         const creationDate = new Date(file.createdAt)
         const lastModifiedDate = new Date(file.updatedAt)
-        const permissions = this.populatePermissions(file.permissions, user)
-
-        /*
-        *   Could be simpler than current population strategy:
-        *
-           const permissionRes = await fetch(environment.BASE_URL + '/fileStorage/permission?file=' + resource._id, {
-               headers: {
-                   'Authorization': 'Bearer ' + user.jwt
-               }
-           })
-
-           logger.info(await permissionRes.json())
-        */
+        const permissions = await this.populatePermissions(file._id, user)
 
         const resource: Resource = {
             type: file.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
@@ -590,6 +569,7 @@ logger.info(data)
      * @return {Promise<Error>}   Error or null depending on success of creation
      */
     async createResource (path: Path, user: User, type: webdav.ResourceType) : Promise<Error> {
+        // TODO: This doesn't seem to match with the way the web client checks create permission
         if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.resources.get(user.uid).get(path.getParent().toString()).permissions.create) {
             if (type.isDirectory || ['docx', 'pptx', 'xlsx'].includes(mime.extension(mime.lookup(path.fileName())))) {
                 logger.info('Trying to create directory or ' + mime.extension(mime.lookup(path.fileName())) + '-file...')
@@ -613,7 +593,7 @@ logger.info(data)
                 logger.info(data)
 
                 if (data._id) {
-                    this.addFileToResources(path, user, data)
+                    await this.addFileToResources(path, user, data)
                 } else {
                     logger.error(webdav.Errors.Forbidden.message)
                     return webdav.Errors.Forbidden
@@ -628,7 +608,7 @@ logger.info(data)
                 logger.info(file)
 
                 if (file._id) {
-                    this.addFileToResources(path, user, file)
+                    await this.addFileToResources(path, user, file)
                 } else {
                     logger.error(webdav.Errors.Forbidden.message)
                     return webdav.Errors.Forbidden
@@ -824,7 +804,7 @@ logger.info(data)
 
                 logger.info(file)
 
-                this.addFileToResources(path, user, file)
+                await this.addFileToResources(path, user, file)
             } else {
                 const res = await api({user, json: true}).patch('/files/' + this.getID(path, user), {
                     size: Buffer.concat(contents).byteLength,
@@ -967,6 +947,8 @@ logger.info(data)
             this.createUserFileSystem(user.uid)
 
             if (this.resourceExists(pathFrom, user)) {
+                // TODO: Check permission (not happening in web client but would be best to check if owner)
+
                 callback(await this.renameResource(pathFrom, user, newName))
             } else {
                 if (await this.loadPath(pathFrom, user)) {

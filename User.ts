@@ -25,6 +25,7 @@ export default class User implements IUser {
     async loadRoles() : Promise<void> {
 
         // TODO: Implement logic on SC-server instead of webdav with a specific flag
+
         const res = await api({user : this}).get('/roles/user/' + this.uid);
 
         logger.info(res.data)
