@@ -48,6 +48,7 @@ interface Resource {
     size: number,
     creationDate: number,
     lastModifiedDate: number,
+    owner: boolean,
     permissions: {
         read: boolean,
         write: boolean,
@@ -218,6 +219,7 @@ logger.info(data)
                         size: null,
                         creationDate: null,
                         lastModifiedDate: null,
+                        owner: false,
                         permissions: null
                    });
                 }
@@ -291,19 +293,22 @@ logger.info(data)
 
         logger.info(data)
 
+        if (this.rootPath === 'teams') {
+            const teamRes = await api({user}).get('teams/' + owner)
+
+            logger.info(teamRes.data)
+        }
+
         const resources = []
         for (const resource of data) {
             const resourceEntry = this.addFileToResources(path.getChildPath(resource.name), user, resource)
 
-            logger.info('resource.permissions.read: ' + resourceEntry.permissions.read)
+            const res = await api({user}).get('/fileStorage/permission?file=' + resourceEntry.id)
 
-            // TODO: Doesn't work as Web Client with teams, maybe need to fetch /files/permissions
-            if (resourceEntry.permissions.read) {
-                resources.push(resource.name)
-            } else {
-                logger.info(resource.permissions)
-            }
-
+            logger.info(res.data)
+            logger.info(resource.permissions)
+            logger.info(resource.name + ' - resource.permissions.read: ' + resourceEntry.permissions.read)
+            resources.push(resource.name)
         }
 
         return resources
@@ -405,12 +410,13 @@ logger.info(data)
            logger.info(await permissionRes.json())
         */
 
-        const resource = {
+        const resource: Resource = {
             type: file.isDirectory ? webdav.ResourceType.Directory : webdav.ResourceType.File,
             id: file._id,
             size: file.size,
             creationDate: creationDate.getTime(),
             lastModifiedDate: lastModifiedDate.getTime(),
+            owner: file.permissions[0].refId == user.uid,
             permissions
         }
 
@@ -841,6 +847,7 @@ logger.info(data)
             this.createUserFileSystem(user.uid)
 
             if (this.resourceExists(path, user)) {
+                logger.info('resource.permission.write: ' + this.resources.get(user.uid).get(path.toString()).permissions?.write)
                 if (this.resources.get(user.uid).get(path.toString()).permissions?.write) {
                     callback(null, await this.processStream(path, user))
                 } else {
@@ -903,10 +910,15 @@ logger.info(data)
                 return ;
             }
 
-            const fileID: string = this.getID(pathFrom, user);
-            const toParentID: string = this.getID(pathTo.getParent(), user);
+            if (this.resources.get(user.uid).get(pathFrom.toString()).owner) {
+                const fileID: string = this.getID(pathFrom, user);
+                const toParentID: string = this.getID(pathTo.getParent(), user);
 
-            callback(await this.moveResource(fileID, toParentID, user, pathFrom, pathTo))
+                callback(await this.moveResource(fileID, toParentID, user, pathFrom, pathTo))
+            } else {
+                logger.error('WebFileSystem._move.owner.false : ' + webdav.Errors.Forbidden.message + ' uid: ' + user.uid)
+                callback(webdav.Errors.Forbidden)
+            }
         } else {
             logger.error(webdav.Errors.BadAuthentication.message)
             callback(webdav.Errors.BadAuthentication)
