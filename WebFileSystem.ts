@@ -587,7 +587,7 @@ class WebFileSystem extends webdav.FileSystem {
             return webdav.Errors.ResourceAlreadyExists
         } else if (path.fileName().match(/[#%^[\],<>?/|~{}]+/)){
             logger.info(`Resourcename ${path.fileName()} not allowed.`)
-            return webdav.Errors.IllegalArguments
+            return webdav.Errors.Forbidden
         }
 
         if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.resources.get(user.uid).get(path.getParent().toString()).permissions.create) {
