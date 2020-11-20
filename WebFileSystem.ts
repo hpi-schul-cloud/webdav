@@ -174,8 +174,7 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Boolean}    true if fileName is valid, false else
      */
     validFileName(name: string): Boolean{
-        if(name.match(/[#%^[\],<>?/|~{}]+/)){return false}
-        return true
+        return !name.match(/[#%^[\],<>?/|~{}]+/)
     }
     /*
      * Loads the root directories of the user
@@ -919,6 +918,13 @@ class WebFileSystem extends webdav.FileSystem {
             const fileID: string = this.getID(pathFrom, user);
             const toParentID: string = this.getID(pathTo.getParent(), user);
 
+            if(!this.validFileName(pathTo.fileName())){
+                logger.warn(`WebFileSystem._move : Resoucename ${pathTo.fileName()} not allowed. pathFrom: ${pathFrom}`)
+                callback(webdav.Errors.Forbidden)
+            } else if (this.resourceExists(pathTo, user)){
+                logger.warn(`WebFileSystem._move: Resource already exists at give path. pathTo: ${pathTo.toString()} uid: ${user.uid}`)
+                callback(webdav.Errors.Forbidden)
+            }
             callback(await this.moveResource(fileID, toParentID, user, pathFrom, pathTo))
         } else {
             logger.error(webdav.Errors.BadAuthentication.message)
@@ -938,6 +944,11 @@ class WebFileSystem extends webdav.FileSystem {
     async renameResource (path: Path, user: User, newName: string) : Promise<Error> {
         if (this.resources.get(user.uid).get(path.toString()).permissions.write) {
 
+            let newPath = new Path( path.getParent().toString()+'/'+newName)
+            if(this.resourceExists(newPath, user)){
+                logger.warn(`WebFileSystem.renameResource: Resource already exists at give path. path: ${path.toString()} newName: ${newName}`)
+                return webdav.Errors.Forbidden
+            }
             if(!this.validFileName(newName)){
                 logger.warn(`Resourcename: ${newName} not allowed.`)
                 return webdav.Errors.Forbidden
