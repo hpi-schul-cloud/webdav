@@ -48,7 +48,7 @@ Calling GET /ocs/v2.php/apps/notifications/api/v2/notifications?format=json...
 Calling GET /ocs/v2.php/core/navigation/apps?absolute=true&format=json...
  */
 app.use((req, res, next) => {
-    logger.info('Calling ' + req.method + ' ' + req.originalUrl + '...')
+    logger.error('Calling ' + req.method + ' ' + req.originalUrl + '...')
     next()
 })
 
@@ -100,13 +100,13 @@ const capabilities = {
     }
 }
 
-app.get('/ocs/v1.php/cloud/capabilities?format=json', (req, res) => {
+app.get('/ocs/v1.php/cloud/capabilities', (req, res) => {
     logger.info('Requesting v1 capabilities (JSON)...')
     res.send(capabilities)
 })
 
 // Seems to get requested much earlier, however, nextcloud tries to get /remote.php/webdav
-app.get('/ocs/v2.php/cloud/capabilities?format=json', (req, res) => {
+app.get('/ocs/v2.php/cloud/capabilities', (req, res) => {
     logger.info('Requesting v2 capabilities (JSON)...')
     res.send(capabilities)
 })
@@ -115,6 +115,15 @@ app.get('/ocs/v2.php/cloud/capabilities?format=json', (req, res) => {
 app.head('/remote.php/webdav/', (req, res, next) => {
     logger.info('Requesting HEAD of root...')
     res.send()
+})
+
+app.propfind('/remote.php/dav/files/lehrer@schul-cloud.org/', (req, res, next) => {
+    let oldUrl = req.url
+    let urlParts = oldUrl.split('/')
+    let path = urlParts.slice(5)
+    req.url = '/remote.php/webdav/'+ path.join('/')
+    logger.error(req.url)
+    return app._router.handle(req,res,next)
 })
 
 // root path doesn't seem to work that easily with all webdav clients, if it doesn't work simply put an empty string there
