@@ -595,9 +595,9 @@ class WebFileSystem extends webdav.FileSystem {
             return webdav.Errors.Forbidden
         }
 
-        // TODO: This doesn't seem to match with the way the web client checks create permission
+        // TODO: Only allow creating files in courses if user is not student (role id vs displayName?)
 
-        if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.resources.get(user.uid).get(path.getParent().toString()).permissions.create) {
+        if (this.rootPath !== 'courses' || (this.rootPath === 'courses')) {
             if (type.isDirectory || ['docx', 'pptx', 'xlsx'].includes(mime.extension(mime.lookup(path.fileName())))) {
                 logger.info('Trying to create directory or ' + mime.extension(mime.lookup(path.fileName())) + '-file...')
 
