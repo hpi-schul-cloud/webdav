@@ -922,14 +922,16 @@ class WebFileSystem extends webdav.FileSystem {
                 const toParentID: string = this.getID(pathTo.getParent(), user);
 
                 if(!this.validFileName(pathTo.fileName())){
-                logger.warn(`WebFileSystem._move : Resoucename ${pathTo.fileName()} not allowed. pathFrom: ${pathFrom}`)
-                callback(webdav.Errors.Forbidden)
-            } else if (this.resourceExists(pathTo, user)){
-                logger.warn(`WebFileSystem._move: Resource already exists at give path. pathTo: ${pathTo.toString()} uid: ${user.uid}`)
-                callback(webdav.Errors.Forbidden)
-            }callback(await this.moveResource(fileID, toParentID, user, pathFrom, pathTo))
+                    logger.warn(`WebFileSystem._move : Resoucename ${pathTo.fileName()} not allowed. pathFrom: ${pathFrom}`)
+                    callback(webdav.Errors.Forbidden)
+                } else if (this.resourceExists(pathTo, user)){
+                    logger.warn(`WebFileSystem._move: Resource already exists at give path. pathTo: ${pathTo.toString()} uid: ${user.uid}`)
+                    callback(webdav.Errors.Forbidden)
+                } else {
+                    callback(await this.moveResource(fileID, toParentID, user, pathFrom, pathTo))
+                }
             } else {
-                logger.error('WebFileSystem._move.owner.false : ' + webdav.Errors.Forbidden.message + ' uid: ' + user.uid)
+                logger.error(`WebFileSystem._move.owner.false : ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
                 callback(webdav.Errors.Forbidden)
             }
         } else {
@@ -949,8 +951,7 @@ class WebFileSystem extends webdav.FileSystem {
      */
     async renameResource (path: Path, user: User, newName: string) : Promise<Error> {
         if (this.resources.get(user.uid).get(path.toString()).permissions.write) {
-
-            let newPath = new Path( path.getParent().toString()+'/'+newName)
+            const newPath = path.getParent().getChildPath(newName)
             if(this.resourceExists(newPath, user)){
                 logger.warn(`WebFileSystem.renameResource: Resource already exists at give path. path: ${path.toString()} newName: ${newName}`)
                 return webdav.Errors.Forbidden
@@ -987,8 +988,6 @@ class WebFileSystem extends webdav.FileSystem {
             this.createUserFileSystem(user.uid)
 
             if (this.resourceExists(pathFrom, user)) {
-                // TODO: Check permission (not happening in web client but would be best to check if owner)
-
                 callback(await this.renameResource(pathFrom, user, newName))
             } else {
                 if (await this.loadPath(pathFrom, user)) {
