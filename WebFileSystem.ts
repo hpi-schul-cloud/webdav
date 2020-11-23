@@ -170,6 +170,16 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
+     * Returns true if the filename is valid
+     *
+     * @param {string} name   Name of the file
+     *
+     * @return {Boolean}    true if fileName is valid, false else
+     */
+    validFileName(name: string): Boolean{
+        return !name.match(/[#%^[\],<>?/|~{}]+/)
+    }
+    /*
      * Loads the root directories of the user
      *
      * @param {User} user   Current user
@@ -575,7 +585,18 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<Error>}   Error or null depending on success of creation
      */
     async createResource (path: Path, user: User, type: webdav.ResourceType) : Promise<Error> {
+
+        // checks if file already exists and if filename contains bad characters (e.g. "§%?&....")
+        if (this.resourceExists(path, user)) {
+            logger.info(`Resource ${path} already exists.`)
+            return webdav.Errors.ResourceAlreadyExists
+        } else if (!this.validFileName(path.fileName())){
+            logger.info(`Resourcename ${path.fileName()} not allowed.`)
+            return webdav.Errors.Forbidden
+        }
+
         // TODO: This doesn't seem to match with the way the web client checks create permission
+
         if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.resources.get(user.uid).get(path.getParent().toString()).permissions.create) {
             if (type.isDirectory || ['docx', 'pptx', 'xlsx'].includes(mime.extension(mime.lookup(path.fileName())))) {
                 logger.info('Trying to create directory or ' + mime.extension(mime.lookup(path.fileName())) + '-file...')
@@ -900,7 +921,13 @@ class WebFileSystem extends webdav.FileSystem {
                 const fileID: string = this.getID(pathFrom, user);
                 const toParentID: string = this.getID(pathTo.getParent(), user);
 
-                callback(await this.moveResource(fileID, toParentID, user, pathFrom, pathTo))
+                if(!this.validFileName(pathTo.fileName())){
+                logger.warn(`WebFileSystem._move : Resoucename ${pathTo.fileName()} not allowed. pathFrom: ${pathFrom}`)
+                callback(webdav.Errors.Forbidden)
+            } else if (this.resourceExists(pathTo, user)){
+                logger.warn(`WebFileSystem._move: Resource already exists at give path. pathTo: ${pathTo.toString()} uid: ${user.uid}`)
+                callback(webdav.Errors.Forbidden)
+            }callback(await this.moveResource(fileID, toParentID, user, pathFrom, pathTo))
             } else {
                 logger.error('WebFileSystem._move.owner.false : ' + webdav.Errors.Forbidden.message + ' uid: ' + user.uid)
                 callback(webdav.Errors.Forbidden)
@@ -923,8 +950,15 @@ class WebFileSystem extends webdav.FileSystem {
     async renameResource (path: Path, user: User, newName: string) : Promise<Error> {
         if (this.resources.get(user.uid).get(path.toString()).permissions.write) {
 
-            // TODO: Check new name for unallowed characters (for example question mark)
-
+            let newPath = new Path( path.getParent().toString()+'/'+newName)
+            if(this.resourceExists(newPath, user)){
+                logger.warn(`WebFileSystem.renameResource: Resource already exists at give path. path: ${path.toString()} newName: ${newName}`)
+                return webdav.Errors.Forbidden
+            }
+            if(!this.validFileName(newName)){
+                logger.warn(`Resourcename: ${newName} not allowed.`)
+                return webdav.Errors.Forbidden
+            }
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
 
             return await api({user,json:true}).post('/fileStorage' + (type.isDirectory ? '/directories' : '') + '/rename', {
