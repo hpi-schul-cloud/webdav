@@ -138,6 +138,71 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
+     * Gets permissions by path and user.
+     * ! Assumes that resource is loaded in this.resource !
+     *
+     * @param {Path} path         Path to resource
+     * @param {User} user           Current user
+     *
+     * @return {Permissions}   Permissions of resource
+     */
+    testPermission(path: Path, user: User, permission: string) : boolean {
+        return this.resourceExists(path, user) ? this.resources.get(user.uid).get(path.toString()).permissions[permission] : null
+    }
+
+    /*
+     * Tests read permission of loaded resource
+     * ! Assumes that resource is loaded in this.resource !
+     *
+     * @param {Path} path         Path to resource
+     * @param {User} user           Current user
+     *
+     * @return {boolean}   Read-permission of file
+     */
+    canRead(path: Path, user: User) : boolean {
+        return this.testPermission(path, user, 'read')
+    }
+
+    /*
+     * Tests write permission of loaded resource
+     * ! Assumes that resource is loaded in this.resource !
+     *
+     * @param {Path} path         Path to resource
+     * @param {User} user           Current user
+     *
+     * @return {boolean}   Write-permission of file
+     */
+    canWrite(path: Path, user: User) : boolean {
+        return this.testPermission(path, user, 'write')
+    }
+
+    /*
+     * Tests create permission of loaded resource
+     * ! Assumes that resource is loaded in this.resource !
+     *
+     * @param {Path} path         Path to resource
+     * @param {User} user           Current user
+     *
+     * @return {boolean}   Create-permission of file
+     */
+    canCreate(path: Path, user: User) : boolean {
+        return this.testPermission(path, user, 'create')
+    }
+
+    /*
+     * Tests delete permission of loaded resource
+     * ! Assumes that resource is loaded in this.resource !
+     *
+     * @param {Path} path         Path to resource
+     * @param {User} user           Current user
+     *
+     * @return {boolean}   Delete-permission of file
+     */
+    canDelete(path: Path, user: User) : boolean {
+        return this.testPermission(path, user, 'delete')
+    }
+
+    /*
      * Returns the owner ID of the given resource
      *
      * @param {Path} path   Path of the resource
@@ -595,9 +660,8 @@ class WebFileSystem extends webdav.FileSystem {
             return webdav.Errors.Forbidden
         }
 
-        // TODO: Only allow creating files in courses if user is not student (role id vs displayName?)
-
-        if (this.rootPath !== 'courses' || (this.rootPath === 'courses')) {
+        // TODO: This is not 100% similar to permission handling of web client and needs testing especially in root folders
+        if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.resources.get(user.uid).get(path.getParent().toString()).permissions.create) {
             if (type.isDirectory || ['docx', 'pptx', 'xlsx'].includes(mime.extension(mime.lookup(path.fileName())))) {
                 logger.info('Trying to create directory or ' + mime.extension(mime.lookup(path.fileName())) + '-file...')
 
