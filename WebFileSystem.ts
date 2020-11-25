@@ -147,6 +147,7 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Permissions}   Permissions of resource
      */
     testPermission(path: Path, user: User, permission: string) : boolean {
+        // TODO: Owner is allowed to do everything with file
         return this.resourceExists(path, user) ? this.resources.get(user.uid).get(path.toString()).permissions[permission] : null
     }
 
@@ -754,7 +755,6 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<Error>}   Error or null depending on success of deletion
      */
     async deleteResource (path: Path, user: User) : Promise<Error> {
-
         // Web Client checks user permission instead of file permission
         logger.info('FILE_DELETE: ' + user.permissions.includes('FILE_DELETE'))
         logger.info('resource permission: ' + this.canDelete(path, user))
@@ -766,6 +766,12 @@ class WebFileSystem extends webdav.FileSystem {
             const data = res.data;
 
             logger.info(data)
+
+            // Server returns error if not allowed
+            if (data.code && data.code === 403) {
+                logger.error(`WebFileSystem.deleteResource.data.code.403: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
+                return webdav.Errors.Forbidden
+            }
 
             this.resources.get(user.uid).delete(path.toString())
 
