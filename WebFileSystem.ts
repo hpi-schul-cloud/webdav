@@ -509,7 +509,7 @@ class WebFileSystem extends webdav.FileSystem {
 
             this.createUserFileSystem(user.uid)
 
-            if (this.resources.get(user.uid).get(path.toString()).permissions.read) {
+            if (this.canRead(path, user)) {
                 const url = await this.retrieveSignedUrl(path, user)
 
                 logger.info("Signed URL: " + url)
@@ -661,7 +661,7 @@ class WebFileSystem extends webdav.FileSystem {
         }
 
         // TODO: This is not 100% similar to permission handling of web client and needs testing especially in root folders
-        if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.resources.get(user.uid).get(path.getParent().toString()).permissions.create) {
+        if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.canCreate(path.getParent(), user)) {
             if (type.isDirectory || ['docx', 'pptx', 'xlsx'].includes(mime.extension(mime.lookup(path.fileName())))) {
                 logger.info('Trying to create directory or ' + mime.extension(mime.lookup(path.fileName())) + '-file...')
 
@@ -757,8 +757,8 @@ class WebFileSystem extends webdav.FileSystem {
 
         // Web Client checks user permission instead of file permission
         logger.info('FILE_DELETE: ' + user.permissions.includes('FILE_DELETE'))
-        logger.info('resource permission: ' + this.resources.get(user.uid).get(path.toString()).permissions?.delete)
-        // if (this.resources.get(user.uid).get(path.toString()).permissions?.delete) {
+        logger.info('resource permission: ' + this.canDelete(path, user))
+        // if (this.canDelete(path, user)) {
         if (user.permissions.includes('FILE_DELETE')) {
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
 
@@ -918,8 +918,8 @@ class WebFileSystem extends webdav.FileSystem {
             this.createUserFileSystem(user.uid)
 
             if (this.resourceExists(path, user)) {
-                logger.info('resource.permission.write: ' + this.resources.get(user.uid).get(path.toString()).permissions?.write)
-                if (this.resources.get(user.uid).get(path.toString()).permissions?.write) {
+                logger.info('resource.permission.write: ' + this.canWrite(path, user))
+                if (this.canWrite(path, user)) {
                     callback(null, await this.processStream(path, user))
                 } else {
                     logger.error('Writing not allowed!')
@@ -1014,7 +1014,7 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<Error>}   Error or null depending on success of renaming
      */
     async renameResource (path: Path, user: User, newName: string) : Promise<Error> {
-        if (this.resources.get(user.uid).get(path.toString()).permissions.write) {
+        if (this.canWrite(path, user)) {
             const newPath = path.getParent().getChildPath(newName)
             if(this.resourceExists(newPath, user)){
                 logger.warn(`WebFileSystem.renameResource: Resource already exists at give path. path: ${path.toString()} newName: ${newName}`)
