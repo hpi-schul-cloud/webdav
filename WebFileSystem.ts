@@ -241,7 +241,7 @@ class WebFileSystem extends webdav.FileSystem {
      *
      * @return {Boolean}    true if fileName is valid, false else
      */
-    validFileName(name: string): Boolean{
+    validFileName(name: string): boolean {
         return !name.match(/[#%^[\],<>?/|~{}]+/)
     }
     /*
@@ -656,7 +656,7 @@ class WebFileSystem extends webdav.FileSystem {
             logger.info(`Resource ${path} already exists.`)
             return webdav.Errors.ResourceAlreadyExists
         } else if (!this.validFileName(path.fileName())){
-            logger.info(`Resourcename ${path.fileName()} not allowed.`)
+            logger.info(`Name ${path.fileName()} not allowed.`)
             return webdav.Errors.Forbidden
         }
 
@@ -986,7 +986,7 @@ class WebFileSystem extends webdav.FileSystem {
                 const toParentID: string = this.getID(pathTo.getParent(), user);
 
                 if(!this.validFileName(pathTo.fileName())){
-                    logger.warn(`WebFileSystem._move : Resoucename ${pathTo.fileName()} not allowed. pathFrom: ${pathFrom}`)
+                    logger.warn(`WebFileSystem._move : Name ${pathTo.fileName()} not allowed. pathFrom: ${pathFrom}`)
                     callback(webdav.Errors.Forbidden)
                 } else if (this.resourceExists(pathTo, user)){
                     logger.warn(`WebFileSystem._move: Resource already exists at give path. pathTo: ${pathTo.toString()} uid: ${user.uid}`)
@@ -1021,7 +1021,7 @@ class WebFileSystem extends webdav.FileSystem {
                 return webdav.Errors.Forbidden
             }
             if(!this.validFileName(newName)){
-                logger.warn(`Resourcename: ${newName} not allowed.`)
+                logger.warn(`Name ${newName} not allowed.`)
                 return webdav.Errors.Forbidden
             }
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
