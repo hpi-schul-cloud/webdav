@@ -680,7 +680,7 @@ class WebFileSystem extends webdav.FileSystem {
                 logger.info(data)
 
                 if (data._id) {
-                    await this.addFileToResources(path, user, data)
+                    this.addFileToResources(path, user, data)
                 } else {
                     logger.error(webdav.Errors.Forbidden.message)
                     return webdav.Errors.Forbidden
@@ -693,7 +693,7 @@ class WebFileSystem extends webdav.FileSystem {
                 logger.info(file)
 
                 if (file._id) {
-                    await this.addFileToResources(path, user, file)
+                    this.addFileToResources(path, user, file)
                 } else {
                     logger.error(webdav.Errors.Forbidden.message)
                     return webdav.Errors.Forbidden
@@ -749,8 +749,6 @@ class WebFileSystem extends webdav.FileSystem {
      */
     async deleteResource (path: Path, user: User) : Promise<Error> {
         // Web Client checks user permission instead of file permission, but SC-Server checks specific permission
-        logger.info('FILE_DELETE: ' + user.permissions.includes('FILE_DELETE'))
-        logger.info('resource permission: ' + this.canDelete(path, user))
         // if (this.canDelete(path, user)) {
         if (user.permissions.includes('FILE_DELETE')) {
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
@@ -895,7 +893,7 @@ class WebFileSystem extends webdav.FileSystem {
                     logger.info(file)
 
                     if (file._id) {
-                        await this.addFileToResources(path, user, file)
+                        this.addFileToResources(path, user, file)
                     } else {
                         logger.error(`WebFileSystem.processStream.file._id.false: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
                     }
@@ -926,7 +924,6 @@ class WebFileSystem extends webdav.FileSystem {
             this.createUserFileSystem(user.uid)
 
             if (this.resourceExists(path, user)) {
-                logger.info('resource.permission.write: ' + this.canWrite(path, user))
                 if (this.canWrite(path, user)) {
                     callback(null, await this.processStream(path, user))
                 } else {
