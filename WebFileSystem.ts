@@ -147,7 +147,6 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Permissions}   Permissions of resource
      */
     testPermission(path: Path, user: User, permission: string) : boolean {
-        // TODO: Owner is allowed to do everything with file
         return this.resourceExists(path, user) ? this.resources.get(user.uid).get(path.toString()).permissions[permission] : null
     }
 
@@ -245,6 +244,7 @@ class WebFileSystem extends webdav.FileSystem {
     validFileName(name: string): boolean {
         return !name.match(/[#%^[\],<>?/|~{}]+/)
     }
+
     /*
      * Loads the root directories of the user
      *
@@ -497,9 +497,7 @@ class WebFileSystem extends webdav.FileSystem {
     async retrieveSignedUrl (path: Path, user: User): Promise<string> {
         const res = await api({user}).get('/fileStorage/signedUrl?file=' + this.getID(path, user));
 
-        const data = res.data;
-
-        return data.url;
+        return res.data.url;
     }
 
     async _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : Promise<void> {
@@ -664,8 +662,6 @@ class WebFileSystem extends webdav.FileSystem {
         // TODO: This is not 100% similar to permission handling of web client and needs testing especially in root folders
         if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.canCreate(path.getParent(), user)) {
             if (type.isDirectory || ['docx', 'pptx', 'xlsx'].includes(mime.extension(mime.lookup(path.fileName())))) {
-                logger.info('Trying to create directory or ' + mime.extension(mime.lookup(path.fileName())) + '-file...')
-
                 const owner = this.getOwnerID(path, user)
                 const parent = this.getParentID(path.getParent(), user)
 
@@ -691,8 +687,6 @@ class WebFileSystem extends webdav.FileSystem {
                     return webdav.Errors.Forbidden
                 }
             } else {
-                logger.info('Trying to create normal file...')
-
                 const data = await this.requestWritableSignedUrl(path, user)
                 await this.writeToSignedUrl(data.url, data.header, [])
                 const file = await this.writeToFileStorage(path, user, data.header, [])
@@ -755,7 +749,7 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<Error>}   Error or null depending on success of deletion
      */
     async deleteResource (path: Path, user: User) : Promise<Error> {
-        // Web Client checks user permission instead of file permission
+        // Web Client checks user permission instead of file permission, but SC-Server checks specific permission
         logger.info('FILE_DELETE: ' + user.permissions.includes('FILE_DELETE'))
         logger.info('resource permission: ' + this.canDelete(path, user))
         // if (this.canDelete(path, user)) {
@@ -825,8 +819,7 @@ class WebFileSystem extends webdav.FileSystem {
             res = await api({user, json: true}).post('/fileStorage/signedUrl', {
                 filename,
                 fileType: contentType,
-                parent: this.getOwnerID(path, user) != parent ? parent : undefined,
-                action: 'putObject'
+                parent: this.getOwnerID(path, user) != parent ? parent : undefined
             })
         }
 
@@ -894,22 +887,32 @@ class WebFileSystem extends webdav.FileSystem {
 
         stream.on('finish', async () => {
             const data = await this.requestWritableSignedUrl(path, user)
-            await this.writeToSignedUrl(data.url, data.header, contents)
+            if (data.url) {
+                await this.writeToSignedUrl(data.url, data.header, contents)
 
-            if (!this.resourceExists(path, user)) {
-                const file = await this.writeToFileStorage(path, user, data.header, contents)
+                if (!this.resourceExists(path, user)) {
+                    const file = await this.writeToFileStorage(path, user, data.header, contents)
 
-                logger.info(file)
+                    logger.info(file)
 
-                await this.addFileToResources(path, user, file)
+                    if (file._id) {
+                        await this.addFileToResources(path, user, file)
+                    } else {
+                        logger.error(`WebFileSystem.processStream.file._id.false: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
+                    }
+                } else {
+                    const res = await api({user, json: true}).patch('/files/' + this.getID(path, user), {
+                        size: Buffer.concat(contents).byteLength,
+                        updatedAt: new Date().toISOString()
+                    })
+
+                    this.resources.get(user.uid).get(path.toString()).size = Buffer.concat(contents).byteLength
+                    this.resources.get(user.uid).get(path.toString()).lastModifiedDate = Date.now()
+
+                    logger.info(res.data)
+                }
             } else {
-                const res = await api({user, json: true}).patch('/files/' + this.getID(path, user), {
-                    size: Buffer.concat(contents).byteLength,
-                    updatedAt: new Date().toISOString()
-                })
-                this.resources.get(user.uid).get(path.toString()).size = Buffer.concat(contents).byteLength
-                this.resources.get(user.uid).get(path.toString()).lastModifiedDate = Date.now()
-                logger.info(res.data)
+                logger.error(`WebFileSystem.processStream.data.url.false: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
             }
         })
 
@@ -932,7 +935,9 @@ class WebFileSystem extends webdav.FileSystem {
                     callback(webdav.Errors.Forbidden)
                 }
             } else {
-                callback(null, await this.processStream(path, user))
+                if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.canCreate(path.getParent(), user)) {
+                    callback(null, await this.processStream(path, user))
+                }
             }
         } else {
             logger.error(webdav.Errors.BadAuthentication.message)
