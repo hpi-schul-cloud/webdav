@@ -659,7 +659,6 @@ class WebFileSystem extends webdav.FileSystem {
             return webdav.Errors.Forbidden
         }
 
-        // TODO: This is not 100% similar to permission handling of web client and needs testing especially in root folders
         if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.canCreate(path.getParent(), user)) {
             if (type.isDirectory || ['docx', 'pptx', 'xlsx'].includes(mime.extension(mime.lookup(path.fileName())))) {
                 const owner = this.getOwnerID(path, user)
