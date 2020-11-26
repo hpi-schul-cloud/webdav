@@ -4,7 +4,8 @@ import WebFileSystem from "./WebFileSystem";
 import UserManager from "./UserManager";
 import logger from './logger';
 import {environment} from './config/globals';
-import Propfind from "webdav-server/lib/server/v2/commands/Propfind";
+var bodyParser = require('body-parser');
+require('body-parser-xml')(bodyParser)
 
 const userManager = new UserManager()
 
@@ -117,7 +118,9 @@ app.head('/remote.php/webdav/', (req, res, next) => {
     res.send()
 })
 
-app.propfind('/remote.php/dav/files/lehrer@schul-cloud.org/', (req, res, next) => {
+const xmlParser = bodyParser.xml()
+app.propfind('/remote.php/dav/files/lehrer@schul-cloud.org/', xmlParser,(req, res, next) => {
+    console.log(req.body)
     let oldUrl = req.url
     let urlParts = oldUrl.split('/')
     let path = urlParts.slice(5)
