@@ -4,9 +4,9 @@ import WebFileSystem from "./WebFileSystem";
 import UserManager from "./UserManager";
 import logger from './logger';
 import {environment} from './config/globals';
-import * as bodyParserXml from 'body-parser-xml'
 
-const bodyParser = require('body-parser');
+import bodyParser = require('body-parser');
+import bodyParserXml = require('body-parser-xml');
 
 bodyParserXml(bodyParser)
 
@@ -161,7 +161,7 @@ app.head('/remote.php/webdav/', (req, res, next) => {
     res.send()
 })
 
-const xmlParser = bodyParser.xml()
+const xmlParser =
 app.propfind('/remote.php/dav/files/lehrer@schul-cloud.org/',(req, res, next) => {
     //console.log(req.body)
     //console.log(Object.keys(req.body))
