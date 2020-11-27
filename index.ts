@@ -48,12 +48,33 @@ Calling GET /remote.php/dav/avatars/lehrer@schul-cloud.org/128.png...
 Calling GET /ocs/v2.php/apps/notifications/api/v2/notifications?format=json...
 Calling GET /ocs/v2.php/core/navigation/apps?absolute=true&format=json...
  */
+var reqCounter = 0;
+
+function reqLabler (req,res ,next) {
+    req.counter = reqCounter;
+    reqCounter+=1
+    next();
+}
+app.use(reqLabler)
 app.use((req, res, next) => {
-    logger.error('Calling ' + req.method + ' ' + req.originalUrl + '...')
+    logger.error('Calling ' + req.method + ' ' + req.originalUrl + 'newUlr: '+req.url + 'Number: ' + String(reqCounter-1))
     next()
 })
 
 app.get('/nextcloud/status.php', (req, res) => {
+    logger.info('Requesting status...')
+    // TODO: Answer with real data
+    res.send({
+        installed: true,
+        maintenance: false,
+        needsDbUpgrade: false,
+        version: "10.0.3.3",
+        versionstring: "10.0.3",
+        edition: "Community",
+        productname: "HPI Schul-Cloud"
+    })
+})
+app.get('/status.php', (req, res) => {
     logger.info('Requesting status...')
     // TODO: Answer with real data
     res.send({
@@ -119,8 +140,13 @@ app.head('/remote.php/webdav/', (req, res, next) => {
 })
 
 const xmlParser = bodyParser.xml()
-app.propfind('/remote.php/dav/files/lehrer@schul-cloud.org/', xmlParser,(req, res, next) => {
-    console.log(req.body)
+app.propfind('/remote.php/dav/files/lehrer@schul-cloud.org/',(req, res, next) => {
+    //console.log(req.body)
+    //console.log(Object.keys(req.body))
+    //Console.log(req.body['d:propfind']['d:prop'])
+    //req.body['d:propfind']['d:prop'].array.forEach(element => {
+    //    console.log(JSON.stringify(element))
+    //});
     let oldUrl = req.url
     let urlParts = oldUrl.split('/')
     let path = urlParts.slice(5)
@@ -129,6 +155,45 @@ app.propfind('/remote.php/dav/files/lehrer@schul-cloud.org/', xmlParser,(req, re
     return app._router.handle(req,res,next)
 })
 
+function logReqRes(req, res, next) {
+    const oldWrite = res.write;
+    const oldEnd = res.end;
+  
+    const chunks = [];
+  
+    res.write = (...restArgs) => {
+      chunks.push(Buffer.from(restArgs[0]));
+      oldWrite.apply(res, restArgs);
+    };
+  
+    res.end = (...restArgs) => {
+      if (restArgs[0]) {
+        chunks.push(Buffer.from(restArgs[0]));
+      }
+      const body = Buffer.concat(chunks).toString('utf8');
+  
+      logger.warn({
+        number: req.counter,
+        time: new Date().toUTCString(),
+        fromIP: req.headers['x-forwarded-for'] || 
+        req.connection.remoteAddress,
+        method: req.method,
+        originalUri: req.originalUrl,
+        laterUri: req.url,
+        uri: req.url,
+        requestData: JSON.stringify(req.body),
+        responseData: body,
+        referer: req.headers.referer || '',
+        ua: req.headers['user-agent']
+      });
+  
+      // console.log(body);
+      oldEnd.apply(res, restArgs);
+    };
+  
+    next();
+  }
+app.use(logReqRes)
 // root path doesn't seem to work that easily with all webdav clients, if it doesn't work simply put an empty string there
 app.use(webdav.extensions.express(environment.WEBDAV_ROOT, server))
 
