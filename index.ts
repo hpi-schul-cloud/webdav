@@ -156,12 +156,11 @@ app.get('/remote.php/dav/avatars/lehrer@schul-cloud.org/128.png', (req, res) => 
  */
 
 // HEAD Request to webdav root maybe needs to be processed, doesn't work until now
-app.head('/remote.php/webdav/', (req, res, next) => {
+app.head('/remote.php/webdav/', (req, res) => {
     logger.info('Requesting HEAD of root...')
     res.send()
 })
 
-const xmlParser =
 app.propfind('/remote.php/dav/files/lehrer@schul-cloud.org/',(req, res, next) => {
     //console.log(req.body)
     //console.log(Object.keys(req.body))
