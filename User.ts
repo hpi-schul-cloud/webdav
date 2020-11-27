@@ -28,7 +28,7 @@ export default class User implements IUser {
 
         const res = await api({user : this}).get('/roles/user/' + this.uid);
 
-        logger.info(res.data)
+        logger.debug(res.data)
 
         for (const role of res.data) {
             this.roles.push(role.id)

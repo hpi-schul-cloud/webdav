@@ -125,8 +125,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
-     * Gets ID by path and user.
-     * ! Assumes that resource is loaded in this.resource !
+     * Gets ID by path and user and returns null if resource not loaded
      *
      * @param {Path} path         Path to resource
      * @param {User} user           Current user
@@ -138,8 +137,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
-     * Gets permissions by path and user.
-     * ! Assumes that resource is loaded in this.resource !
+     * Gets permissions by path and user and returns null if resource not loaded
      *
      * @param {Path} path         Path to resource
      * @param {User} user           Current user
@@ -151,8 +149,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
-     * Tests read permission of loaded resource
-     * ! Assumes that resource is loaded in this.resource !
+     * Tests read permission of resource and returns null if resource not loaded
      *
      * @param {Path} path         Path to resource
      * @param {User} user           Current user
@@ -164,8 +161,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
-     * Tests write permission of loaded resource
-     * ! Assumes that resource is loaded in this.resource !
+     * Tests write permission of resource and returns null if resource not loaded
      *
      * @param {Path} path         Path to resource
      * @param {User} user           Current user
@@ -177,8 +173,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
-     * Tests create permission of loaded resource
-     * ! Assumes that resource is loaded in this.resource !
+     * Tests create permission of resource and returns null if resource not loaded
      *
      * @param {Path} path         Path to resource
      * @param {User} user           Current user
@@ -190,8 +185,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     /*
-     * Tests delete permission of loaded resource
-     * ! Assumes that resource is loaded in this.resource !
+     * Tests delete permission of resource and returns null if resource not loaded
      *
      * @param {Path} path         Path to resource
      * @param {User} user           Current user
@@ -309,12 +303,11 @@ class WebFileSystem extends webdav.FileSystem {
                 if (this.rootPath === 'teams') {
                     const res = await api({user}).get('/teams/' + resource._id)
 
-                    logger.info(res.data)
+                    logger.debug(res.data)
 
                     this.resources.get(user.uid).get('/' + resource.name).role = res.data.user.role
                 }
             }
-
 
             return data['data'].map((resource) => resource.name)
         } else {
@@ -375,7 +368,7 @@ class WebFileSystem extends webdav.FileSystem {
         if (this.rootPath === 'teams') {
             const teamRes = await api({user}).get('teams/' + owner)
 
-            logger.info(teamRes.data)
+            logger.debug(teamRes.data)
         }
 
         const resources = []
@@ -690,7 +683,7 @@ class WebFileSystem extends webdav.FileSystem {
                 await this.writeToSignedUrl(data.url, data.header, [])
                 const file = await this.writeToFileStorage(path, user, data.header, [])
 
-                logger.info(file)
+                logger.debug(file)
 
                 if (file._id) {
                     this.addFileToResources(path, user, file)
