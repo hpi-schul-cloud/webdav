@@ -23,6 +23,7 @@ import {IPropertyManager} from "webdav-server/lib/manager/v2/fileSystem/Property
 import User from "./User";
 import logger from './logger';
 import api from './api';
+import {AxiosResponse} from "axios";
 
 class WebFileSystemSerializer implements webdav.FileSystemSerializer {
     uid(): string {
@@ -1031,10 +1032,22 @@ class WebFileSystem extends webdav.FileSystem {
             return await api({user,json:true}).post('/fileStorage' + (type.isDirectory ? '/directories' : '') + '/rename', {
                 id: this.getID(path, user),
                 newName
-            }).then(() => {
+            }).then((res: AxiosResponse) => {
+                if (res.data.code) {
+                    logger.error(`WebFileSystem.deleteResource.data.code.${res.data.code}: ${res.data.message} uid: ${user.uid}`)
+                    if (res.data.code === 403 && res.data.errors?.code === 403) {
+                        return webdav.Errors.Forbidden
+                    } else if (res.data.code === 404 || res.data.errors?.code === 404) {
+                        this.resources.get(user.uid).delete(path.toString())
+                        return webdav.Errors.ResourceNotFound
+                    }
+                }
+
                 this.resources.get(user.uid).set(path.getParent().getChildPath(newName).toString(), this.resources.get(user.uid).get(path.toString()))
                 this.resources.get(user.uid).delete(path.toString())
-                logger.info(`File at ${path.toString()} now named ${newName}`);
+
+                logger.info(`File at ${path.toString()} now named ${newName}`)
+
                 return null
             }).catch((error) => {
                 logger.error(error)
