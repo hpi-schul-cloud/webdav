@@ -361,25 +361,26 @@ class WebFileSystem extends webdav.FileSystem {
         const owner = this.getOwnerID(path, user)
         const parent = this.getParentID(path, user)
 
-        const res = await api({user}).get('/fileStorage?owner=' + owner + (parent != owner ? '&parent=' + parent : ''));
+            const res = await api({user}).get('/fileStorage?owner=' + owner + (parent != owner ? '&parent=' + parent : ''));
 
-        const data: ResourceResponse[] = res.data;
+            const data: ResourceResponse[] = res.data;
 
-        logger.info(data)
+            logger.info(data)
 
-        if (this.rootPath === 'teams') {
-            const teamRes = await api({user}).get('teams/' + owner)
+            if (this.rootPath === 'teams') {
+                const teamRes = await api({user}).get('teams/' + owner)
 
-            logger.debug(teamRes.data)
-        }
+                logger.debug(teamRes.data)
+            }
 
-        const resources = []
-        for (const resource of data) {
-            this.addFileToResources(path.getChildPath(resource.name), user, resource)
-            resources.push(resource.name)
-        }
+            const resources = []
+            for (const resource of data) {
+                this.addFileToResources(path.getChildPath(resource.name), user, resource)
+                resources.push(resource.name)
+            }
 
-        return resources
+            return resources
+
     }
 
     /*
@@ -497,10 +498,9 @@ class WebFileSystem extends webdav.FileSystem {
                 return res.data.url
             }
         } catch (error) {
-            if (error.response) {
-                if (error.response.data.code === 404) {
-                    throw webdav.Errors.ResourceNotFound
-                }
+            if (error.response?.data?.code === 404) {
+                this.resources.get(user.uid).delete(path.toString())
+                throw webdav.Errors.ResourceNotFound
             }
         }
 
@@ -526,7 +526,7 @@ class WebFileSystem extends webdav.FileSystem {
 
                     callback(null, new webdav.VirtualFileReadable([ buffer ]))
                 } catch (error) {
-                    logger.error(`WebFileSystem._openReadStream.retrieveSignedUrl.error.${error.name}: ${error.message} uid: ${user.uid}`)
+                    logger.error(`WebFileSystem._openReadStream.retrieveSignedUrl.error: ${error.message} uid: ${user.uid}`)
                     callback(error)
                 }
             } else {
@@ -549,9 +549,14 @@ class WebFileSystem extends webdav.FileSystem {
                 callback(null, await this.loadRootDirectories(user))
             } else {
                 if (this.resourceExists(path, user)) {
-                    const resources = await this.loadDirectory(path, user)
+                    try {
+                        const resources = await this.loadDirectory(path, user)
 
-                    callback(null, resources)
+                        callback(null, resources)
+                    } catch (error) {
+                        logger.error(`WebFileSystem._readDir.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
+                        callback(webdav.Errors.Forbidden)
+                    }
                 } else {
                     if (await this.loadPath(path, user)) {
                         const resources = await this.loadDirectory(path, user)
@@ -963,9 +968,16 @@ class WebFileSystem extends webdav.FileSystem {
         return await api({user, json: true}).patch(
             `/fileStorage/${resourceID}`,
             {parent: newParentID})
-            .then(() => {
+            .then((res) => {
+                logger.info(res.data)
+
+                if (res.data.code === 403) {
+                    return webdav.Errors.Forbidden
+                }
+
                 this.resources.get(user.uid).set(pathTo.toString(), this.resources.get(user.uid).get(pathFrom.toString()))
                 this.resources.get(user.uid).delete(pathFrom.toString())
+
                 return null
             }).catch(() => {
                 logger.error('File at moveResource() could not be moved', user.uid, resourceID, newParentID);
@@ -1005,6 +1017,7 @@ class WebFileSystem extends webdav.FileSystem {
                     logger.warn(`WebFileSystem._move : Name ${pathTo.fileName()} not allowed. pathFrom: ${pathFrom}`)
                     callback(webdav.Errors.Forbidden)
                 } else if (this.resourceExists(pathTo, user)){
+                    // TODO: Could be triggered with ghost file --> No possibility to name file exactly the same
                     logger.warn(`WebFileSystem._move: Resource already exists at give path. pathTo: ${pathTo.toString()} uid: ${user.uid}`)
                     callback(webdav.Errors.Forbidden)
                 } else {
@@ -1032,6 +1045,7 @@ class WebFileSystem extends webdav.FileSystem {
     async renameResource (path: Path, user: User, newName: string) : Promise<Error> {
         if (this.canWrite(path, user)) {
             const newPath = path.getParent().getChildPath(newName)
+            // TODO: Could be triggered with ghost file --> No possibility to name file exactly the same
             if(this.resourceExists(newPath, user)){
                 logger.warn(`WebFileSystem.renameResource: Resource already exists at give path. path: ${path.toString()} newName: ${newName}`)
                 return webdav.Errors.Forbidden
