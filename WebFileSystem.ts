@@ -24,6 +24,7 @@ import User from "./User";
 import logger from './logger';
 import api from './api';
 import {AxiosResponse} from "axios";
+import {error} from "winston";
 
 class WebFileSystemSerializer implements webdav.FileSystemSerializer {
     uid(): string {
@@ -489,9 +490,21 @@ class WebFileSystem extends webdav.FileSystem {
      * @return {Promise<string>}   Signed URL
      */
     async retrieveSignedUrl (path: Path, user: User): Promise<string> {
-        const res = await api({user}).get('/fileStorage/signedUrl?file=' + this.getID(path, user));
+        try {
+            const res = await api({user}).get('/fileStorage/signedUrl?file=' + this.getID(path, user))
 
-        return res.data.url;
+            if (res.data.url) {
+                return res.data.url
+            }
+        } catch (error) {
+            if (error.response) {
+                if (error.response.data.code === 404) {
+                    throw webdav.Errors.ResourceNotFound
+                }
+            }
+        }
+
+        throw webdav.Errors.Forbidden
     }
 
     async _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : Promise<void> {
@@ -503,18 +516,18 @@ class WebFileSystem extends webdav.FileSystem {
             this.createUserFileSystem(user.uid)
 
             if (this.canRead(path, user)) {
-                const url = await this.retrieveSignedUrl(path, user)
+                try {
+                    const url = await this.retrieveSignedUrl(path, user)
 
-                logger.info("Signed URL: " + url)
+                    logger.info("Signed URL: " + url)
 
-                if (url) {
                     const file = await api({}).get(url, { responseType: 'arraybuffer' })
                     const buffer = await file.data
 
                     callback(null, new webdav.VirtualFileReadable([ buffer ]))
-                } else {
-                    logger.error(webdav.Errors.Forbidden.message)
-                    callback(webdav.Errors.Forbidden)
+                } catch (error) {
+                    logger.error(`WebFileSystem._openReadStream.retrieveSignedUrl.error.${error.name}: ${error.message} uid: ${user.uid}`)
+                    callback(error)
                 }
             } else {
                 logger.error('Reading not allowed!')
