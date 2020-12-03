@@ -749,12 +749,14 @@ class WebFileSystem extends webdav.FileSystem {
             const res = await api({user}).delete('/fileStorage' + (type.isDirectory ? '/directories?_id=' : '?_id=') + this.getID(path, user));
             const data = res.data;
 
-            logger.info(data)
-
             // Server returns error if not allowed
-            if (data.code && data.code === 403) {
-                logger.error(`WebFileSystem.deleteResource.data.code.403: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
-                return webdav.Errors.Forbidden
+            if (data.code) {
+                logger.error(`WebFileSystem.deleteResource.data.code.${data.code}: ${data.message} uid: ${user.uid}`)
+                if (data.code === 403) {
+                    return webdav.Errors.Forbidden
+                }
+            } else {
+                logger.info(data)
             }
 
             this.resources.get(user.uid).delete(path.toString())
