@@ -14,29 +14,34 @@ const server = new webdav.WebDAVServer({
 
 });
 
-server.setFileSystem('courses', new WebFileSystem('courses'), (succeeded) => {
-    if (succeeded) {
-        logger.info("Successfully mounted 'courses' file system!")
-    }
-});
-
-server.setFileSystem('my', new WebFileSystem('my'), (succeeded) => {
-    if (succeeded) {
-        logger.info("Successfully mounted 'my files' file system!")
-    }
-});
-
-server.setFileSystem('teams', new WebFileSystem('teams'), (succeeded) => {
-    if (succeeded) {
-        logger.info("Successfully mounted 'teams' file system!")
-    }
-});
-
-server.setFileSystem('shared', new WebFileSystem('shared'), (succeeded) => {
-    if (succeeded) {
-        logger.info("Successfully mounted 'shared' file system!")
-    }
-});
+server.setFileSystem('', new WebFileSystem('shared'),(succeeded) => {
+        if (succeeded) {
+            logger.info("Successfully mounted 'courses' file system!")
+        }
+})
+//server.setFileSystem('courses', new WebFileSystem('courses'), (succeeded) => {
+//    if (succeeded) {
+//        logger.info("Successfully mounted 'courses' file system!")
+//    }
+//});
+//
+//server.setFileSystem('my', new WebFileSystem('my'), (succeeded) => {
+//    if (succeeded) {
+//        logger.info("Successfully mounted 'my files' file system!")
+//    }
+//});
+//
+//server.setFileSystem('teams', new WebFileSystem('teams'), (succeeded) => {
+//    if (succeeded) {
+//        logger.info("Successfully mounted 'teams' file system!")
+//    }
+//});
+//
+//server.setFileSystem('shared', new WebFileSystem('shared'), (succeeded) => {
+//    if (succeeded) {
+//        logger.info("Successfully mounted 'shared' file system!")
+//    }
+//});
 
 const app = express()
 
@@ -57,7 +62,7 @@ function reqLabler (req,res ,next) {
 }
 app.use(reqLabler)
 app.use((req, res, next) => {
-    logger.error('Calling ' + req.method + ' ' + req.originalUrl + 'newUlr: '+req.url + 'Number: ' + String(reqCounter-1))
+    logger.error('Calling ' + req.method + ' ' + req.originalUrl + ' newUrl: '+req.url + ' Number: ' + String(reqCounter-1))
     next()
 })
 
@@ -134,26 +139,27 @@ app.get('/ocs/v2.php/cloud/capabilities', (req, res) => {
 })
 
 // HEAD Request to webdav root maybe needs to be processed, doesn't work until now
-app.head('/remote.php/webdav/', (req, res, next) => {
-    logger.info('Requesting HEAD of root...')
-    res.send()
-})
+//app.head('/remote.php/webdav//', (req, res, next) => {
+//    //logger.info('Requesting HEAD of root...')
+//    req.url = '/remote.php/webdav/courses'
+//    return app._router.handle(req,res,next)
+//})
 
-const xmlParser = bodyParser.xml()
-app.propfind('/remote.php/dav/files/lehrer@schul-cloud.org/',(req, res, next) => {
+//const xmlParser = bodyParser.xml()
+//app.propfind('/remote.php/dav/files/lehrer@schul-cloud.org/',(req, res, next) => {
     //console.log(req.body)
     //console.log(Object.keys(req.body))
     //Console.log(req.body['d:propfind']['d:prop'])
     //req.body['d:propfind']['d:prop'].array.forEach(element => {
     //    console.log(JSON.stringify(element))
     //});
-    let oldUrl = req.url
-    let urlParts = oldUrl.split('/')
-    let path = urlParts.slice(5)
-    req.url = '/remote.php/webdav/'+ path.join('/')
-    logger.error(req.url)
-    return app._router.handle(req,res,next)
-})
+    //let oldUrl = req.url
+    //let urlParts = oldUrl.split('/')
+    //let path = urlParts.slice(5)
+    //req.url = '/remote.php/webdav/courses/'+ path.join('/')
+    //logger.error(req.url)
+    //return app._router.handle(req,res,next)
+//})
 
 function logReqRes(req, res, next) {
     const oldWrite = res.write;
@@ -171,7 +177,6 @@ function logReqRes(req, res, next) {
         chunks.push(Buffer.from(restArgs[0]));
       }
       const body = Buffer.concat(chunks).toString('utf8');
-  
       logger.warn({
         number: req.counter,
         time: new Date().toUTCString(),
@@ -184,19 +189,20 @@ function logReqRes(req, res, next) {
         requestData: JSON.stringify(req.body),
         responseData: body,
         referer: req.headers.referer || '',
-        ua: req.headers['user-agent']
+        ua: req.headers['user-agent'],
+        contentType: res.get('content-type')
       });
-  
       // console.log(body);
       oldEnd.apply(res, restArgs);
     };
-  
     next();
   }
 app.use(logReqRes)
+
 // root path doesn't seem to work that easily with all webdav clients, if it doesn't work simply put an empty string there
 app.use(webdav.extensions.express(environment.WEBDAV_ROOT, server))
-
+app.use(webdav.extensions.express('/remote.php/webdav/', server))
+app.use(webdav.extensions.express('/remote.php/webdav//', server))
 app.listen(environment.PORT, () => {
     logger.info('Ready on port ' + environment.PORT)
 })
