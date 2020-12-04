@@ -4,8 +4,11 @@ import WebFileSystem from "./WebFileSystem";
 import UserManager from "./UserManager";
 import logger from './logger';
 import {environment} from './config/globals';
-var bodyParser = require('body-parser');
-require('body-parser-xml')(bodyParser)
+
+import bodyParser = require('body-parser');
+import bodyParserXml = require('body-parser-xml');
+
+bodyParserXml(bodyParser)
 
 const userManager = new UserManager()
 
@@ -45,24 +48,17 @@ server.setFileSystem('', new WebFileSystem('shared'),(succeeded) => {
 
 const app = express()
 
-/*
-Calling GET /ocs/v1.php/cloud/capabilities?format=json...
-Calling GET /ocs/v1.php/config?format=json...
-Calling GET /ocs/v1.php/cloud/user?format=json...
-Calling GET /remote.php/dav/avatars/lehrer@schul-cloud.org/128.png...
-Calling GET /ocs/v2.php/apps/notifications/api/v2/notifications?format=json...
-Calling GET /ocs/v2.php/core/navigation/apps?absolute=true&format=json...
- */
-var reqCounter = 0;
+let reqCounter = 0;
 
 function reqLabler (req,res ,next) {
     req.counter = reqCounter;
     reqCounter+=1
     next();
 }
+
 app.use(reqLabler)
 app.use((req, res, next) => {
-    logger.error('Calling ' + req.method + ' ' + req.originalUrl + ' newUrl: '+req.url + ' Number: ' + String(reqCounter-1))
+    logger.error('Calling ' + req.method + ' ' + req.originalUrl + ' --> new URL: '+ req.url + ' - Number: ' + String(reqCounter-1))
     next()
 })
 
@@ -128,14 +124,50 @@ const capabilities = {
 }
 
 app.get('/ocs/v1.php/cloud/capabilities', (req, res) => {
-    logger.info('Requesting v1 capabilities (JSON)...')
+    logger.info('Requesting v1 capabilities...')
     res.send(capabilities)
 })
 
 // Seems to get requested much earlier, however, nextcloud tries to get /remote.php/webdav
 app.get('/ocs/v2.php/cloud/capabilities', (req, res) => {
-    logger.info('Requesting v2 capabilities (JSON)...')
+    logger.info('Requesting v2 capabilities...')
     res.send(capabilities)
+})
+
+app.get('/ocs/v2.php/core/navigation/apps', (req, res, next) => {
+    logger.info('Requesting v2 navigation...')
+    next()
+})
+
+app.get('/ocs/v1.php/config', (req, res, next) => {
+    logger.info('Requesting v1 config...')
+    // Returns HTML-Document by default with message: Cannot GET /ocs/v1.php/config
+    next()
+})
+
+// Maybe needs to be answered: https://doc.owncloud.com/server/admin_manual/configuration/user/user_provisioning_api.html
+app.get('/ocs/v1.php/cloud/user', (req, res, next) => {
+    logger.info('Requesting v1 user (JSON)...')
+    next()
+    /*res.send({
+        ocs: {
+            meta: {
+                statuscode: 100,
+                status: 'ok'
+            },
+            data: {
+                users: [
+                    'Frank'
+                ]
+            }
+        }
+    })
+    */
+})
+
+app.get('/remote.php/dav/avatars/lehrer@schul-cloud.org/128.png', (req, res, next) => {
+    logger.info('Requesting avatar..')
+    next()
 })
 
 // HEAD Request to webdav root maybe needs to be processed, doesn't work until now
@@ -145,7 +177,13 @@ app.get('/ocs/v2.php/cloud/capabilities', (req, res) => {
 //    return app._router.handle(req,res,next)
 //})
 
-//const xmlParser = bodyParser.xml()
+/*
+Process:
+
+Calling PROPFIND /remote.php/dav/files/lehrer@schul-cloud.org/ --> new URL: /remote.php/dav/files/lehrer@schul-cloud.org/ - Number: 8
+/remote.php/webdav/
+Calling PROPFIND /remote.php/dav/files/lehrer@schul-cloud.org/ --> new URL: /remote.php/webdav/ - Number: 9
+ */
 //app.propfind('/remote.php/dav/files/lehrer@schul-cloud.org/',(req, res, next) => {
     //console.log(req.body)
     //console.log(Object.keys(req.body))
@@ -153,25 +191,28 @@ app.get('/ocs/v2.php/cloud/capabilities', (req, res) => {
     //req.body['d:propfind']['d:prop'].array.forEach(element => {
     //    console.log(JSON.stringify(element))
     //});
-    //let oldUrl = req.url
-    //let urlParts = oldUrl.split('/')
-    //let path = urlParts.slice(5)
-    //req.url = '/remote.php/webdav/courses/'+ path.join('/')
+    //const oldUrl = req.url
+    //const urlParts = oldUrl.split('/')
+    //const path = urlParts.slice(5)
+    //req.url = '/remote.php/webdav/'+ path.join('/')
     //logger.error(req.url)
     //return app._router.handle(req,res,next)
 //})
 
+// PROPFIND Request to /remote.php/webdav/ returns weird xml:
+// <?xml version="1.0" encoding="utf-8"?><D:multistatus xmlns:D="DAV:"><D:response><D:href>http://localhost:1900/remote.php/webdav/</D:href><D:propstat><D:status>HTTP/1.1 200 OK</D:status><D:prop/></D:propstat><D:propstat><D:prop><a:nssize xmlns="http://owncloud.org/ns" xmlns:a="http://owncloud.org:"/></D:prop><D:status>HTTP/1.1 404 Not Found</D:status></D:propstat></D:response></D:multistatus>'
+
 function logReqRes(req, res, next) {
     const oldWrite = res.write;
     const oldEnd = res.end;
-  
+
     const chunks = [];
-  
+
     res.write = (...restArgs) => {
-      chunks.push(Buffer.from(restArgs[0]));
-      oldWrite.apply(res, restArgs);
+        chunks.push(Buffer.from(restArgs[0]));
+        oldWrite.apply(res, restArgs);
     };
-  
+
     res.end = (...restArgs) => {
       if (restArgs[0]) {
         chunks.push(Buffer.from(restArgs[0]));

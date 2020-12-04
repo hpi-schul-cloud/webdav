@@ -4,7 +4,6 @@ import {IUser} from "webdav-server/lib/user/v2/IUser";
 import User from "./User";
 import {v2 as webdav} from "webdav-server";
 import api from './api'
-import {environment} from './config/globals';
 import logger from './logger';
 
 export default class UserManager implements ITestableUserManager, IListUserManager {
@@ -12,6 +11,7 @@ export default class UserManager implements ITestableUserManager, IListUserManag
     users: Map<string, User>
 
     constructor() {
+        // TODO: Clear list regularly (sometimes there are 'ghost' files when changed in web client)
         this.users = new Map()
     }
 
