@@ -107,8 +107,8 @@ class WebFileSystem extends webdav.FileSystem {
         //'http://owncloud.org/nsdDC':1,
         'http://owncloud.org/nspermissions':"RDNVCK",
         //'http://owncloud.org/nschecksums':12,
-        'http://owncloud.org/nsdata-fingerprint':null,
-        'http://owncloud.org/nsshare-types':null,
+        'http://owncloud.org/nsdata-fingerprint':'',
+        'http://owncloud.org/nsshare-types':'',
         //'DAV:getcontentlength':0,
         'DAV:quota-available-bytes':10000000,
         'DAV:quota-used-bytes':100000};

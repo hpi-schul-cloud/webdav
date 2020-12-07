@@ -13,8 +13,8 @@ bodyParserXml(bodyParser)
 const userManager = new UserManager()
 
 const server = new webdav.WebDAVServer({
-    httpAuthentication: new webdav.HTTPBasicAuthentication(userManager)
-
+    httpAuthentication: new webdav.HTTPBasicAuthentication(userManager),
+    respondWithPaths : true
 });
 
 server.setFileSystem('', new WebFileSystem('my'),(succeeded) => {
