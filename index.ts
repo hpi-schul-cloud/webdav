@@ -228,6 +228,23 @@ const capabilities = {
     }
  }
 
+const config = {
+    "ocs":{
+       "meta":{
+          "status":"ok",
+          "statuscode":100,
+          "message":null
+       },
+       "data":{
+          "version":"1.7",
+          "website":"ownCloud",
+          "host":"localhost",
+          "contact":"",
+          "ssl":"false"
+       }
+    }
+}
+
 app.get('/ocs/v1.php/cloud/capabilities', (req, res) => {
     logger.info('Requesting v1 capabilities...')
     res.send(capabilities)
@@ -246,8 +263,7 @@ app.get('/ocs/v2.php/core/navigation/apps', (req, res, next) => {
 
 app.get('/ocs/v1.php/config', (req, res, next) => {
     logger.info('Requesting v1 config...')
-    // Returns HTML-Document by default with message: Cannot GET /ocs/v1.php/config
-    next()
+    res.send(config)
 })
 
 // Maybe needs to be answered: https://doc.owncloud.com/server/admin_manual/configuration/user/user_provisioning_api.html
@@ -276,11 +292,11 @@ app.get('/remote.php/dav/avatars/lehrer@schul-cloud.org/128.png', (req, res, nex
 })
 
 // HEAD Request to webdav root maybe needs to be processed, doesn't work until now
-//app.head('/remote.php/webdav//', (req, res, next) => {
-//    //logger.info('Requesting HEAD of root...')
-//    req.url = '/remote.php/webdav/courses'
-//    return app._router.handle(req,res,next)
-//})
+app.head('/remote.php/webdav//', (req, res, next) => {
+    //logger.info('Requesting HEAD of root...')
+    req.url = '/remote.php/webdav/courses'
+    return app._router.handle(req,res,next)
+})
 
 /*
 Process:
@@ -347,6 +363,7 @@ app.use(logReqRes)
 
 // root path doesn't seem to work that easily with all webdav clients, if it doesn't work simply put an empty string there
 app.use(webdav.extensions.express(environment.WEBDAV_ROOT, server))
+app.use(webdav.extensions.express(environment.WEBDAV_ROOT+'/', server))
 app.use(webdav.extensions.express('/remote.php/dav/files/lehrer@schul-cloud.org', server))
 
 app.listen(environment.PORT, () => {
