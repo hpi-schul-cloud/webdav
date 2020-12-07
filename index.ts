@@ -347,8 +347,8 @@ app.use(logReqRes)
 
 // root path doesn't seem to work that easily with all webdav clients, if it doesn't work simply put an empty string there
 app.use(webdav.extensions.express(environment.WEBDAV_ROOT, server))
-app.use(webdav.extensions.express('/remote.php/webdav/', server))
-app.use(webdav.extensions.express('/remote.php/webdav//', server))
+app.use(webdav.extensions.express('/remote.php/dav/files/lehrer@schul-cloud.org', server))
+
 app.listen(environment.PORT, () => {
     logger.info('Ready on port ' + environment.PORT)
 })
