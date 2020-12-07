@@ -17,7 +17,7 @@ const server = new webdav.WebDAVServer({
 
 });
 
-server.setFileSystem('', new WebFileSystem('shared'),(succeeded) => {
+server.setFileSystem('', new WebFileSystem('my'),(succeeded) => {
         if (succeeded) {
             logger.info("Successfully mounted 'courses' file system!")
         }
