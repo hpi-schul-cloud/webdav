@@ -854,17 +854,17 @@ class WebFileSystem extends webdav.FileSystem {
             try {
                 res = await api({user, json: true}).patch('/fileStorage/signedUrl/' + this.getID(path, user))
             } catch (error) {
-                logger.error(`WebFileSystem.createResource.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
+                logger.error(`WebFileSystem.requestWritableSignedUrl.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
                 if (error.response.data.code === 404) {
                     this.deleteResourceLocally(path, user)
-                    throw webdav.Errors.ResourceNotFound
+                    return this.requestWritableSignedUrl(path, user)
                 } else {
                     throw webdav.Errors.Forbidden
                 }
             }
 
             if (res.data.code) {
-                logger.error(`WebFileSystem.createResource.error.${res.data.code}: ${res.data.message} uid: ${user.uid}`)
+                logger.error(`WebFileSystem.requestWritableSignedUrl.error.${res.data.code}: ${res.data.message} uid: ${user.uid}`)
                 throw webdav.Errors.Forbidden
             }
         } else {
@@ -875,7 +875,7 @@ class WebFileSystem extends webdav.FileSystem {
                     parent: this.getOwnerID(path, user) != parent ? parent : undefined
                 })
             } catch (error) {
-                logger.error(`WebFileSystem.createResource.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
+                logger.error(`WebFileSystem.requestWritableSignedUrl.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
                 throw webdav.Errors.Forbidden
             }
         }
@@ -926,8 +926,14 @@ class WebFileSystem extends webdav.FileSystem {
             body['owner'] = owner
         }
 
-        const res = await api({user, json: true}).post('/fileStorage', body)
-        return res.data
+        try {
+            const res = await api({user, json: true}).post('/fileStorage', body)
+
+            return res.data
+        } catch (error) {
+            logger.error(`WebFileSystem.writeToFileStorage.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
+            throw webdav.Errors.Forbidden
+        }
     }
 
     /*
@@ -943,33 +949,37 @@ class WebFileSystem extends webdav.FileSystem {
         const stream = new webdav.VirtualFileWritable(contents)
 
         stream.on('finish', async () => {
-            const data = await this.requestWritableSignedUrl(path, user)
-            if (data.url) {
-                await this.writeToSignedUrl(data.url, data.header, contents)
+            try {
+                const data = await this.requestWritableSignedUrl(path, user)
+                if (data.url) {
+                    await this.writeToSignedUrl(data.url, data.header, contents)
 
-                if (!this.resourceExists(path, user)) {
-                    const file = await this.writeToFileStorage(path, user, data.header, contents)
+                    if (!this.resourceExists(path, user)) {
+                        const file = await this.writeToFileStorage(path, user, data.header, contents)
 
-                    logger.info(file)
+                        logger.info(file)
 
-                    if (file._id) {
-                        this.addFileToResources(path, user, file)
+                        if (file._id) {
+                            this.addFileToResources(path, user, file)
+                        } else {
+                            logger.error(`WebFileSystem.processStream.file._id.false: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
+                        }
                     } else {
-                        logger.error(`WebFileSystem.processStream.file._id.false: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
+                        const res = await api({user, json: true}).patch('/files/' + this.getID(path, user), {
+                            size: Buffer.concat(contents).byteLength,
+                            updatedAt: new Date().toISOString()
+                        })
+
+                        this.resources.get(user.uid).get(path.toString()).size = Buffer.concat(contents).byteLength
+                        this.resources.get(user.uid).get(path.toString()).lastModifiedDate = Date.now()
+
+                        logger.info(res.data)
                     }
                 } else {
-                    const res = await api({user, json: true}).patch('/files/' + this.getID(path, user), {
-                        size: Buffer.concat(contents).byteLength,
-                        updatedAt: new Date().toISOString()
-                    })
-
-                    this.resources.get(user.uid).get(path.toString()).size = Buffer.concat(contents).byteLength
-                    this.resources.get(user.uid).get(path.toString()).lastModifiedDate = Date.now()
-
-                    logger.info(res.data)
+                    logger.error(`WebFileSystem.processStream.data.url.false: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
                 }
-            } else {
-                logger.error(`WebFileSystem.processStream.data.url.false: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
+            } catch (error) {
+                // TODO: Log again? Or what else to do here? Callback is not possible.
             }
         })
 
@@ -982,6 +992,8 @@ class WebFileSystem extends webdav.FileSystem {
         if (ctx.context.user) {
             const user: User = <User> ctx.context.user
             this.createUserFileSystem(user.uid)
+
+            // TODO: Uploading file leads to size == 0
 
             if (this.resourceExists(path, user)) {
                 if (this.canWrite(path, user)) {
