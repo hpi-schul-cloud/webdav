@@ -370,27 +370,35 @@ class WebFileSystem extends webdav.FileSystem {
         const owner = this.getOwnerID(path, user)
         const parent = this.getParentID(path, user)
 
-        const res = await api({user}).get('/fileStorage?owner=' + owner + (parent != owner ? '&parent=' + parent : ''));
+        try {
+            const res = await api({user}).get('/fileStorage?owner=' + owner + (parent != owner ? '&parent=' + parent : ''));
 
-        // TODO: res.data could be error which should be handled appropriately
+            const data: ResourceResponse[] = res.data;
 
-        const data: ResourceResponse[] = res.data;
+            logger.info(data)
 
-        logger.info(data)
+            if (this.rootPath === 'teams') {
+                const teamRes = await api({user}).get('teams/' + owner)
 
-        if (this.rootPath === 'teams') {
-            const teamRes = await api({user}).get('teams/' + owner)
+                logger.debug(teamRes.data)
+            }
 
-            logger.debug(teamRes.data)
+            const resources = []
+            for (const resource of data) {
+                this.addFileToResources(path.getChildPath(resource.name), user, resource)
+                resources.push(resource.name)
+            }
+
+            return resources
+        } catch (error) {
+            logger.error(`WebFileSystem.loadDirectory.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
+            this.deleteResourceLocally(path, user)
+            if (error.response.data.code === 404) {
+                throw webdav.Errors.ResourceNotFound
+            } else {
+                throw webdav.Errors.Forbidden
+            }
         }
-
-        const resources = []
-        for (const resource of data) {
-            this.addFileToResources(path.getChildPath(resource.name), user, resource)
-            resources.push(resource.name)
-        }
-
-        return resources
     }
 
     /*
@@ -415,8 +423,6 @@ class WebFileSystem extends webdav.FileSystem {
 
                     currentPath = currentPath.getChildPath(path.paths[currentPath.paths.length])
                 } catch (error) {
-                    logger.error(`WebFileSystem.loadPath.loadDirectory.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
-                    this.deleteResourceLocally(currentPath, user)
                     return false
                 }
             } else {
@@ -566,19 +572,17 @@ class WebFileSystem extends webdav.FileSystem {
             } else {
                 if (this.resourceExists(path, user)) {
                     try {
-                        const resources = await this.loadDirectory(path, user)
-
-                        callback(null, resources)
+                        callback(null, await this.loadDirectory(path, user))
                     } catch (error) {
-                        logger.error(`WebFileSystem._readDir.loadDirectory.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
-                        this.deleteResourceLocally(path, user)
-                        callback(webdav.Errors.Forbidden)
+                        callback(error)
                     }
                 } else {
                     if (await this.loadPath(path, user)) {
-                        const resources = await this.loadDirectory(path, user)
-
-                        callback(null, resources)
+                        try {
+                            callback(null, await this.loadDirectory(path, user))
+                        } catch (error) {
+                            callback(error)
+                        }
                     } else {
                         logger.error('Directory could not be found!')
                         callback(webdav.Errors.ResourceNotFound)
@@ -979,7 +983,7 @@ class WebFileSystem extends webdav.FileSystem {
                     logger.error(`WebFileSystem.processStream.data.url.false: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
                 }
             } catch (error) {
-                // TODO: Log again? Or what else to do here? Callback is not possible.
+                logger.error(`WebFileSystem.processStream.onFinish.error: ${error.message} uid: ${user.uid}`)
             }
         })
 
@@ -1058,6 +1062,7 @@ class WebFileSystem extends webdav.FileSystem {
 
             // renaming seems to be a move call in many clients but cannot be handled as such here:
             if(pathFrom.getParent().toString() === pathTo.getParent().toString() && pathFrom.fileName() !== pathTo.fileName()){
+                // TODO: Assure that resource exists
                 callback(await this.renameResource(pathFrom, user, pathTo.fileName()));
                 return;
             }
@@ -1120,7 +1125,7 @@ class WebFileSystem extends webdav.FileSystem {
                 newName
             }).then((res: AxiosResponse) => {
                 if (res.data.code) {
-                    logger.error(`WebFileSystem.deleteResource.data.code.${res.data.code}: ${res.data.message} uid: ${user.uid}`)
+                    logger.error(`WebFileSystem.renameResource.data.code.${res.data.code}: ${res.data.message} uid: ${user.uid}`)
                     if (res.data.code === 403 && res.data.errors?.code === 403) {
                         return webdav.Errors.Forbidden
                     } else if (res.data.code === 404 || res.data.errors?.code === 404) {
