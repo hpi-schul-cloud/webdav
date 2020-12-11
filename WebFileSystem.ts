@@ -911,6 +911,18 @@ class WebFileSystem extends webdav.FileSystem {
                         updatedAt: new Date().toISOString()
                     })
 
+                    // TODO: Should work also with course-directories etc.
+                    let parentPath = path.getParent()
+                    let parentID = this.getID(parentPath, user)
+                    while (parentPath.hasParent()) {
+                        await api({user, json: true}).patch('/files/' + parentID, {
+                            updatedAt: new Date().toISOString()
+                        })
+
+                        parentPath = parentPath.getParent()
+                        parentID = this.getID(parentPath, user)
+                    }
+
                     this.resources.get(user.uid).get(path.toString()).size = Buffer.concat(contents).byteLength
                     this.resources.get(user.uid).get(path.toString()).lastModifiedDate = Date.now()
 
