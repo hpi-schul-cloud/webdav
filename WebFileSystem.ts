@@ -390,7 +390,7 @@ class WebFileSystem extends webdav.FileSystem {
             }
 
             return resources
-        } catch (error) {
+         } catch (error) {
             logger.error(`WebFileSystem.loadDirectory.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
             this.deleteResourceLocally(path, user)
             if (error.response.data.code === 404) {
@@ -801,7 +801,7 @@ class WebFileSystem extends webdav.FileSystem {
             // Server returns error if not allowed
             if (data.code) {
                 logger.error(`WebFileSystem.deleteResource.data.code.${data.code}: ${data.message} uid: ${user.uid}`)
-                if (data.code === 403) {
+                if (data.code === 403 && data.errors?.code !== 404) {
                     return webdav.Errors.Forbidden
                 }
             } else {
@@ -1060,17 +1060,16 @@ class WebFileSystem extends webdav.FileSystem {
                 return;
             }
 
-            // renaming seems to be a move call in many clients but cannot be handled as such here:
-            if(pathFrom.getParent().toString() === pathTo.getParent().toString() && pathFrom.fileName() !== pathTo.fileName()){
-                // TODO: Assure that resource exists
-                callback(await this.renameResource(pathFrom, user, pathTo.fileName()));
-                return;
-            }
-
             if (!await this.loadPath(pathFrom, user) || !await this.loadPath(pathTo.getParent(), user)){
                 logger.error('Resource could not be found!')
                 callback(webdav.Errors.ResourceNotFound);
                 return ;
+            }
+
+            // renaming seems to be a move call in many clients but cannot be handled as such here:
+            if(pathFrom.getParent().toString() === pathTo.getParent().toString() && pathFrom.fileName() !== pathTo.fileName()){
+                callback(await this.renameResource(pathFrom, user, pathTo.fileName()));
+                return;
             }
 
             if (this.resources.get(user.uid).get(pathFrom.toString()).owner) {
