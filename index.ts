@@ -206,7 +206,7 @@ const capabilities = {
                    },
                    "ocFederatedSharing":{
                       "remote":[
-                         
+
                       ]
                    }
                 },
@@ -267,6 +267,17 @@ app.get('/ocs/v1.php/config', (req, res, next) => {
 })
 
 // Maybe needs to be answered: https://doc.owncloud.com/server/admin_manual/configuration/user/user_provisioning_api.html
+// returns HTML:
+//     '<!DOCTYPE html>\n' +
+//     '<html lang="en">\n' +
+//     '<head>\n' +
+//     '<meta charset="utf-8">\n' +
+//     '<title>Error</title>\n' +
+//     '</head>\n' +
+//     '<body>\n' +
+//     '<pre>Cannot GET /ocs/v1.php/cloud/user</pre>\n' +
+//     '</body>\n' +
+//     '</html>\n',
 app.get('/ocs/v1.php/cloud/user', (req, res, next) => {
     logger.info('Requesting v1 user (JSON)...')
     next()
@@ -286,6 +297,7 @@ app.get('/ocs/v1.php/cloud/user', (req, res, next) => {
     */
 })
 
+// Also returns 404 HTML-Document
 app.get('/remote.php/dav/avatars/lehrer@schul-cloud.org/128.png', (req, res, next) => {
     logger.info('Requesting avatar..')
     next()
@@ -342,7 +354,7 @@ function logReqRes(req, res, next) {
       logger.warn({
         number: req.counter,
         time: new Date().toUTCString(),
-        fromIP: req.headers['x-forwarded-for'] || 
+        fromIP: req.headers['x-forwarded-for'] ||
         req.connection.remoteAddress,
         method: req.method,
         originalUri: req.originalUrl,
