@@ -300,12 +300,15 @@ class WebFileSystem extends webdav.FileSystem {
                 adder = this.addFileToResources.bind(this)
             } else {
                 adder = (path: Path, user: User, resource : ResourceResponse) => {
+                    const creationDate = this.rootPath === 'courses' ? new Date(resource.createdAt) : null
+                    const lastModifiedDate = this.rootPath === 'courses' ? new Date(resource.updatedAt) : null
+
                     this.resources.get(user.uid).set(path.toString(), {
                         type: webdav.ResourceType.Directory,
                         id: resource._id,
                         size: null,
-                        creationDate: null,
-                        lastModifiedDate: null,
+                        creationDate: this.rootPath === 'courses' ? creationDate.getTime() : null,
+                        lastModifiedDate: this.rootPath === 'courses' ? lastModifiedDate.getTime() : null,
                         permissions: null
                    });
                 }
