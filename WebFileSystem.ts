@@ -574,6 +574,8 @@ class WebFileSystem extends webdav.FileSystem {
                     try {
                         callback(null, await this.loadDirectory(path, user))
                     } catch (error) {
+                        // Error callback doesn't seem to work here in _readDir (at least with Cyberduck)
+                        // TODO: Fix this problem because otherwise you can open ghost directories which leads to problems
                         callback(error)
                     }
                 } else {
@@ -684,12 +686,14 @@ class WebFileSystem extends webdav.FileSystem {
     async createResource (path: Path, user: User, type: webdav.ResourceType) : Promise<Error> {
 
         // checks if file already exists and if filename contains bad characters (e.g. "§%?&....")
-        if (this.resourceExists(path, user)) {
-            logger.info(`Resource ${path} already exists.`)
-            return webdav.Errors.ResourceAlreadyExists
-        } else if (!this.validFileName(path.fileName())){
+        if (!this.validFileName(path.fileName())){
             logger.info(`Name ${path.fileName()} not allowed.`)
             return webdav.Errors.Forbidden
+        } else if ((await this.loadDirectory(path.getParent(), user)).includes(path.fileName())) {
+            logger.info(`Resource ${path} already exists.`)
+            return webdav.Errors.ResourceAlreadyExists
+        } else if (this.resourceExists(path, user)) {
+            this.deleteResourceLocally(path, user)
         }
 
         if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.canCreate(path.getParent(), user)) {
@@ -1079,13 +1083,19 @@ class WebFileSystem extends webdav.FileSystem {
                 if(!this.validFileName(pathTo.fileName())){
                     logger.warn(`WebFileSystem._move : Name ${pathTo.fileName()} not allowed. pathFrom: ${pathFrom}`)
                     callback(webdav.Errors.Forbidden)
-                } else if (this.resourceExists(pathTo, user)){
-                    // TODO: Could be triggered with ghost file --> No possibility to name file exactly the same
+                    return
+                } else if ((await this.loadDirectory(pathTo.getParent(), user)).includes(pathTo.fileName())) {
+                    // a lot of clients are asking whether to override the file, that could be also implemented instead of an error
                     logger.warn(`WebFileSystem._move: Resource already exists at give path. pathTo: ${pathTo.toString()} uid: ${user.uid}`)
-                    callback(webdav.Errors.Forbidden)
-                } else {
-                    callback(await this.moveResource(fileID, toParentID, user, pathFrom, pathTo))
+                    callback(webdav.Errors.ResourceAlreadyExists)
+                    return
                 }
+
+                if (this.resourceExists(pathTo, user)) {
+                    this.deleteResourceLocally(pathTo, user)
+                }
+
+                callback(await this.moveResource(fileID, toParentID, user, pathFrom, pathTo))
             } else {
                 logger.error(`WebFileSystem._move.owner.false : ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
                 callback(webdav.Errors.Forbidden)
@@ -1107,16 +1117,20 @@ class WebFileSystem extends webdav.FileSystem {
      */
     async renameResource (path: Path, user: User, newName: string) : Promise<Error> {
         if (this.canWrite(path, user)) {
-            const newPath = path.getParent().getChildPath(newName)
-            // TODO: Could be triggered with ghost file --> No possibility to name file exactly the same
-            if(this.resourceExists(newPath, user)){
-                logger.warn(`WebFileSystem.renameResource: Resource already exists at give path. path: ${path.toString()} newName: ${newName}`)
-                return webdav.Errors.Forbidden
-            }
             if(!this.validFileName(newName)){
                 logger.warn(`Name ${newName} not allowed.`)
                 return webdav.Errors.Forbidden
             }
+
+            const newPath = path.getParent().getChildPath(newName)
+            if((await this.loadDirectory(path.getParent(), user)).includes(newName)){
+                // a lot of clients are asking whether to override the file, that could be also implemented instead of an error
+                logger.warn(`WebFileSystem.renameResource: Resource already exists at give path. path: ${path.toString()} newName: ${newName}`)
+                return webdav.Errors.ResourceAlreadyExists
+            } else if (this.resourceExists(newPath, user)) {
+                this.deleteResourceLocally(newPath, user)
+            }
+
             const type: webdav.ResourceType = this.resources.get(user.uid).get(path.toString()).type
 
             return await api({user,json:true}).post('/fileStorage' + (type.isDirectory ? '/directories' : '') + '/rename', {
