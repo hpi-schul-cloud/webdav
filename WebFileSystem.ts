@@ -375,7 +375,7 @@ class WebFileSystem extends webdav.FileSystem {
 
             const data: ResourceResponse[] = res.data;
 
-            logger.info(`Load Dir response Data: ${data}`)
+            logger.info(`Load Directory Response Data: ${data}`)
 
             if (this.rootPath === 'teams') {
                 const teamRes = await api({user}).get('teams/' + owner)
