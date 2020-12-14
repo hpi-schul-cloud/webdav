@@ -3,12 +3,11 @@ import {environment} from './config/globals';
 
 
 class LoggerService{
-    log_data: any;
     logger: winston.Logger;
 
     constructor() {
-        this.log_data = null
         const errorFormat = winston.format.combine(
+            winston.format.errors({ stack: true }),
             winston.format.timestamp({
                 format: 'YYYY-MM-DD HH:mm:ss'
             }),
@@ -16,10 +15,14 @@ class LoggerService{
         )
         
         const consoleFormat = winston.format.combine(
+            winston.format.errors({ stack: true }),
             winston.format.colorize({ message: true }),
-            winston.format.printf((info) => {
+            winston.format.printf(({ level, message, stack }) => {
                 const timeStamp = new Date().toTimeString().split(' ')[0];
-                return `[${timeStamp}] ${info.message}`;}),
+                if (stack)
+                    return `[${timeStamp}] ${message} \n${stack}`;
+                return `[${timeStamp}] ${message}`;}),
+            
         ) 
         
         const logger = winston.createLogger({
@@ -42,28 +45,17 @@ class LoggerService{
         }
        this.logger = logger
     }
-    setLogData(log_data) : void{
-      this.log_data = log_data
-    }
     async info(message: string, obj?: any) : Promise<void>{
-        this.logger.log('info', message, {
-            obj
-        })
+        this.logger.info(message, obj)
     }
-    async debug(message, obj?: any) : Promise<void> {
-        this.logger.log('debug', message, {
-            obj
-        })
+    async debug(message: string, obj?: any) : Promise<void> {
+        this.logger.debug(message, obj)
     }
-    async error(message, obj?) {
-        this.logger.log('error', message, {
-            obj
-        })
+    async error(message: string, obj?: any) : Promise<void> {
+        this.logger.error(message, obj)
     }
-    async warn(message, obj?) {
-        this.logger.log('warn', message, {
-            obj
-        })
+    async warn(message: string, obj? : any) : Promise<void> {
+        this.logger.warn(message, obj)
     }    
 }
 
