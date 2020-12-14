@@ -17,7 +17,7 @@ class LoggerService{
         const consoleFormat = winston.format.combine(
             winston.format.errors({ stack: true }),
             winston.format.colorize({ message: true }),
-            winston.format.printf(({ level, message, stack }) => {
+            winston.format.printf(({message, stack}) => {
                 const timeStamp = new Date().toTimeString().split(' ')[0];
                 if (stack)
                     return `[${timeStamp}] ${message} \n${stack}`;
@@ -56,7 +56,7 @@ class LoggerService{
     }
     async warn(message: string, obj? : any) : Promise<void> {
         this.logger.warn(message, obj)
-    }    
+    }
 }
 
 const logger = new LoggerService();
