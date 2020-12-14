@@ -353,7 +353,7 @@ class WebFileSystem extends webdav.FileSystem {
                 filePermissions.delete = role.delete ? true : filePermissions.delete
             })
 
-        logger.info(`File-Permissions: ${filePermissions}`)
+        logger.info(`File-Permissions: ${JSON.stringify(filePermissions)}`)
 
         return filePermissions
     }
@@ -375,12 +375,12 @@ class WebFileSystem extends webdav.FileSystem {
 
             const data: ResourceResponse[] = res.data;
 
-            logger.info(`Load Directory Response Data: ${data}`)
+            logger.info(`Load Directory Response Data: ${JSON.stringify(data)}`)
 
             if (this.rootPath === 'teams') {
                 const teamRes = await api({user}).get('teams/' + owner)
 
-                logger.debug(`Response Data on load Directory in teams: ${teamRes.data}`)
+                logger.debug(`Response Data on load Directory in teams: ${JSON.stringify(teamRes.data)}`)
             }
 
             const resources = []
@@ -530,7 +530,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     async _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : Promise<void> {
-        logger.info("Reading file: " + path)
+        logger.info("Reading file: " + path.toString())
 
         if (info.context.user) {
             const user: User = <User> info.context.user
