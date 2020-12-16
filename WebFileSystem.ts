@@ -113,7 +113,7 @@ class WebFileSystem extends webdav.FileSystem {
         //'DAV:getcontentlength':0,
         'DAV:quota-available-bytes':10000000,
         'DAV:quota-used-bytes':100000};
-        var prop
+        let prop
         for (prop in properties){
             this.props.setProperty(prop, properties[prop], {}, ()=>{})
         }
@@ -714,7 +714,7 @@ class WebFileSystem extends webdav.FileSystem {
             this.deleteResourceLocally(path, user)
         }
 
-        if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.canCreate(path.getParent(), user)) {
+        if (!this.resources.get(user.uid).get(path.getParent().toString())?.permissions || this.canCreate(path.getParent(), user)) {
             if (type.isDirectory || ['docx', 'pptx', 'xlsx'].includes(mime.extension(mime.lookup(path.fileName())))) {
                 const owner = this.getOwnerID(path, user)
                 const parent = this.getParentID(path.getParent(), user)
@@ -996,20 +996,35 @@ class WebFileSystem extends webdav.FileSystem {
                             updatedAt: new Date().toISOString()
                         })
 
-                        // TODO: Should work also with course-directories etc.
-                    let parentPath = path.getParent()
-                    let parentID = this.getID(parentPath, user)
-                    while (parentPath.hasParent()) {
-                        await api({user, json: true}).patch('/files/' + parentID, {
-                            updatedAt: new Date().toISOString()
-                        })
+                        logger.info('Updating \'updatedAt\' of parent directories...')
 
-                        parentPath = parentPath.getParent()
-                        parentID = this.getID(parentPath, user)
-                    }
+                        let parentPath = path.getParent()
+                        let parentID = this.getID(parentPath, user)
+                        while (!parentPath.isRoot()) {
+                            if (parentPath.hasParent() || (this.rootPath !== 'courses' && this.rootPath !== 'teams')) {
+                                const res = await api({user, json: true}).patch('/files/' + parentID, {
+                                    updatedAt: new Date().toISOString()
+                                })
 
-                    this.resources.get(user.uid).get(path.toString()).size = Buffer.concat(contents).byteLength
-                    this.resources.get(user.uid).get(path.toString()).lastModifiedDate = Date.now()
+                                logger.debug(`Update-Response:`)
+                                logger.debug(res.data)
+                            } else if (this.rootPath === 'courses') {
+                                const res = await api({user, json: true}).patch('/courses/' + parentID, {
+                                    updatedAt: new Date().toISOString()
+                                })
+
+                                logger.debug(`Update-Response:`)
+                                logger.debug(res.data)
+                            }
+                            this.resources.get(user.uid).get(parentPath.toString()).lastModifiedDate = Date.now()
+
+                            parentPath = parentPath.getParent()
+                            parentID = this.getID(parentPath, user)
+                        }
+                        // TODO: Other situations should trigger update too (like deletion etc.)
+
+                        this.resources.get(user.uid).get(path.toString()).size = Buffer.concat(contents).byteLength
+                        this.resources.get(user.uid).get(path.toString()).lastModifiedDate = Date.now()
 
                         logger.info(res.data)
                     }
