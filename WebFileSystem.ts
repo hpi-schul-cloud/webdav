@@ -1211,7 +1211,6 @@ class WebFileSystem extends webdav.FileSystem {
                 this.resources.get(user.uid).set(path.getParent().getChildPath(newName).toString(), this.resources.get(user.uid).get(path.toString()))
                 this.deleteResourceLocally(path, user)
 
-                // TODO: Maybe update own 'updatedAt'-attribute
                 await this.updateParentModifiedDates(path, user)
 
                 logger.info(`File at ${path.toString()} now named ${newName}`)
