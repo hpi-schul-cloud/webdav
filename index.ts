@@ -17,34 +17,34 @@ const server = new webdav.WebDAVServer({
     respondWithPaths : true
 });
 
-server.setFileSystem('', new WebFileSystem('my'),(succeeded) => {
+/*server.setFileSystem('', new WebFileSystem('my'),(succeeded) => {
         if (succeeded) {
             logger.info("Successfully mounted 'courses' file system!")
         }
-})
-//server.setFileSystem('courses', new WebFileSystem('courses'), (succeeded) => {
-//    if (succeeded) {
-//        logger.info("Successfully mounted 'courses' file system!")
-//    }
-//});
-//
-//server.setFileSystem('my', new WebFileSystem('my'), (succeeded) => {
-//    if (succeeded) {
-//        logger.info("Successfully mounted 'my files' file system!")
-//    }
-//});
-//
-//server.setFileSystem('teams', new WebFileSystem('teams'), (succeeded) => {
-//    if (succeeded) {
-//        logger.info("Successfully mounted 'teams' file system!")
-//    }
-//});
-//
-//server.setFileSystem('shared', new WebFileSystem('shared'), (succeeded) => {
-//    if (succeeded) {
-//        logger.info("Successfully mounted 'shared' file system!")
-//    }
-//});
+})*/
+server.setFileSystem('courses', new WebFileSystem('courses'), (succeeded) => {
+   if (succeeded) {
+       logger.info("Successfully mounted 'courses' file system!")
+   }
+});
+
+server.setFileSystem('my', new WebFileSystem('my'), (succeeded) => {
+   if (succeeded) {
+       logger.info("Successfully mounted 'my files' file system!")
+   }
+});
+
+server.setFileSystem('teams', new WebFileSystem('teams'), (succeeded) => {
+   if (succeeded) {
+       logger.info("Successfully mounted 'teams' file system!")
+   }
+});
+
+server.setFileSystem('shared', new WebFileSystem('shared'), (succeeded) => {
+   if (succeeded) {
+       logger.info("Successfully mounted 'shared' file system!")
+   }
+});
 
 const app = express()
 

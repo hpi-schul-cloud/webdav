@@ -326,7 +326,8 @@ class WebFileSystem extends webdav.FileSystem {
             }
 
             for (const resource of data.data) {
-                adder(new Path([resource.name]), user, resource)
+                const childPath: Path = new Path([resource.name])
+                adder(childPath, user, resource)
 
                 // TODO: Maybe can be integrated more beautiful
                 if (this.rootPath === 'teams') {
@@ -334,7 +335,12 @@ class WebFileSystem extends webdav.FileSystem {
 
                     logger.debug(res.data)
 
-                    this.resources.get(user.uid).get('/' + resource.name).role = res.data.user.role
+                    const creationDate = new Date(res.data.createdAt)
+                    const lastModifiedDate = new Date(res.data.updatedAt)
+
+                    this.resources.get(user.uid).get(childPath.toString()).role = res.data.user.role
+                    this.resources.get(user.uid).get(childPath.toString()).creationDate = creationDate.getTime()
+                    this.resources.get(user.uid).get(childPath.toString()).lastModifiedDate = lastModifiedDate.getTime()
                 }
             }
 
@@ -394,12 +400,6 @@ class WebFileSystem extends webdav.FileSystem {
             const data: ResourceResponse[] = res.data;
 
             logger.info(data)
-
-            if (this.rootPath === 'teams') {
-                const teamRes = await api({user}).get('teams/' + owner)
-
-                logger.debug(teamRes.data)
-            }
 
             const resources = []
             for (const resource of data) {
@@ -567,8 +567,8 @@ class WebFileSystem extends webdav.FileSystem {
 
                 logger.debug(`Update-Response:`)
                 logger.debug(res.data)
-            } else if (this.rootPath === 'courses') {
-                const res = await api({user, json: true}).patch('/courses/' + parentID, {
+            } else {
+                const res = await api({user, json: true}).patch((this.rootPath === 'courses' ? '/courses/' : '/teams/') + parentID, {
                     updatedAt: new Date().toISOString()
                 })
 
