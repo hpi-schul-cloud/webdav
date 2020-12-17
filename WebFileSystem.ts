@@ -715,6 +715,7 @@ class WebFileSystem extends webdav.FileSystem {
 
         if (ctx.context.user) {
             this.createUserFileSystem(ctx.context.user.uid)
+            //TODO: Root-Directories (teams, courses, my, shared) have to get lastModifiedDate using lastModifiedDate of directory contents
             const lastModifiedDate = await this.getMetadata(path, 'lastModifiedDate', <User>ctx.context.user)
             if (lastModifiedDate >= 0) {
                 callback(null, lastModifiedDate)
