@@ -32,15 +32,11 @@ const logger = winston.createLogger({
             level: 'warn',
             maxsize: 10485760, // 10MB
         }),
+        new winston.transports.Console({
+            format: consoleFormat,
+            level: environment.LOG_LEVEL,
+          }),
     ],
 })
-
-// if we are not in production then log (everything) to console
-if (environment.NODE_ENV !== 'production') {
-    logger.add(new winston.transports.Console({
-      format: consoleFormat,
-    }));
-}
-
 
 export default logger;
