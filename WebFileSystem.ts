@@ -288,7 +288,7 @@ class WebFileSystem extends webdav.FileSystem {
             const res = await api({user}).get(url, {params: qs})
 
             const data = res.data
-            logger.info(data)
+            logger.debug(`WebFileSystem.loadRootDirectories.res.data: ${JSON.stringify(data)}`)
 
             // TODO: make this look fancy :)
             let adder
@@ -353,7 +353,7 @@ class WebFileSystem extends webdav.FileSystem {
                 filePermissions.delete = role.delete ? true : filePermissions.delete
             })
 
-        logger.info(`File-Permissions: ${JSON.stringify(filePermissions)}`)
+        logger.debug(`File-Permissions: ${JSON.stringify(filePermissions)}`)
 
         return filePermissions
     }
@@ -715,7 +715,7 @@ class WebFileSystem extends webdav.FileSystem {
 
                     const data = res.data;
 
-                    logger.info(data)
+                    logger.debug(`WebFileSystem.createResource.post: res.data: ${JSON.stringify(data)}`)
 
                     if (data._id) {
                         this.addFileToResources(path, user, data)
@@ -810,7 +810,7 @@ class WebFileSystem extends webdav.FileSystem {
                     return webdav.Errors.Forbidden
                 }
             } else {
-                logger.info(data)
+                logger.debug(`WebFileSystem.deleteResource.data.code.null: res.data: ${JSON.stringify(data)}`)
             }
 
             this.deleteResourceLocally(path, user)
@@ -891,7 +891,7 @@ class WebFileSystem extends webdav.FileSystem {
 
         const data = res.data
 
-        logger.info(`requestWritableSignedUrl res data: ${data}`)
+        logger.debug(`requestWritableSignedUrl res data: ${data}`)
 
         return data
     }
@@ -982,7 +982,7 @@ class WebFileSystem extends webdav.FileSystem {
                         this.resources.get(user.uid).get(path.toString()).size = Buffer.concat(contents).byteLength
                         this.resources.get(user.uid).get(path.toString()).lastModifiedDate = Date.now()
 
-                        logger.info(`processStream: ${res.data}`)
+                        logger.debug(`processStream: ${JSON.stringify(res.data)}`)
                     }
                 } else {
                     logger.error(`WebFileSystem.processStream.data.url.false: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`, new Error('Stack-Tracer'))
@@ -1008,7 +1008,7 @@ class WebFileSystem extends webdav.FileSystem {
                 if (this.canWrite(path, user)) {
                     callback(null, await this.processStream(path, user))
                 } else {
-                    logger.error(`WebFileSystem._openWriteStream: Writing not allowed! uid: ${user.uid} path: ${path.toString()}`, new Error('Stack-Tracer'))
+                    logger.warn(`WebFileSystem._openWriteStream: Writing not allowed! uid: ${user.uid} path: ${path.toString()}`)
                     callback(webdav.Errors.Forbidden)
                 }
             } else {
@@ -1036,7 +1036,7 @@ class WebFileSystem extends webdav.FileSystem {
             `/fileStorage/${resourceID}`,
             {parent: newParentID})
             .then((res) => {
-                logger.info(res.data)
+                logger.debug(`WebFileSystem.moveResource.res.data: ${JSON.stringify(res.data)}`)
 
                 if (res.data.code === 403) {
                     logger.error(`WebFileSystem.moveResource.error.403: ${res.data.message} uid: ${user.uid}`, new Error('Stack-Tracer'))
@@ -1155,7 +1155,7 @@ class WebFileSystem extends webdav.FileSystem {
 
                 return null
             }).catch((error) => {
-                logger.error('renameResource: Error in Server communication',error)
+                logger.error('WebFileSystem.renameResource: Error in Server communication',error)
                 return webdav.Errors.InvalidOperation
             })
         } else {
