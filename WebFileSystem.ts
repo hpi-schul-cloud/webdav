@@ -375,7 +375,7 @@ class WebFileSystem extends webdav.FileSystem {
 
             const data: ResourceResponse[] = res.data;
 
-            logger.info(`Load Directory Response Data: ${JSON.stringify(data)}`)
+            logger.debug(`Load Directory Response Data: ${JSON.stringify(data)}`)
 
             if (this.rootPath === 'teams') {
                 const teamRes = await api({user}).get('teams/' + owner)
@@ -592,7 +592,7 @@ class WebFileSystem extends webdav.FileSystem {
                 }
             }
         } else {
-            logger.error(`WebFileSystem._readDir.context.user.false : ${webdav.Errors.BadAuthentication.message} path: ${path.toString()}`, new Error('Stack-Tracer'))
+            logger.warn(`WebFileSystem._readDir.context.user.false : ${webdav.Errors.BadAuthentication.message} path: ${path.toString()}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -613,12 +613,12 @@ class WebFileSystem extends webdav.FileSystem {
                 if (await this.loadPath(path, user)) {
                     callback(null, this.resources.get(user.uid).get(path.toString()).type)
                 } else {
-                    logger.error(`WebFileSystem._type : File could not be found! uid: ${info.context.user.uid} path: ${path.toString()}`, new Error('Stack-Tracer'))
+                    logger.error(`WebFileSystem._type.loadPath.false : File could not be found! uid: ${info.context.user.uid} path: ${path.toString()}`, new Error('Stack-Tracer'))
                     callback(webdav.Errors.ResourceNotFound)
                 }
             }
         } else {
-            logger.error(`WebFileSystem._type : ${webdav.Errors.BadAuthentication.message} path: ${path.toString()}`, new Error('Stack-Tracer'))
+            logger.warn(`WebFileSystem._type.context.user.false : ${webdav.Errors.BadAuthentication.message} path: ${path.toString()}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -635,7 +635,7 @@ class WebFileSystem extends webdav.FileSystem {
                 callback(webdav.Errors.None)
             }
         } else {
-            logger.error(`WebFileSystem._size.user.false : ${webdav.Errors.BadAuthentication.message}`, new Error('Stack-Tracer'))
+            logger.warn(`WebFileSystem._size.user.false : ${webdav.Errors.BadAuthentication.message}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -652,7 +652,7 @@ class WebFileSystem extends webdav.FileSystem {
                 callback(webdav.Errors.None)
             }
         } else {
-            logger.error(`WebFileSystem._creationDate.user.false : ${webdav.Errors.BadAuthentication.message}`, new Error('Stack-Tracer'))
+            logger.warn(`WebFileSystem._creationDate.user.false : ${webdav.Errors.BadAuthentication.message}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -669,7 +669,7 @@ class WebFileSystem extends webdav.FileSystem {
                 callback(webdav.Errors.None)
             }
         } else {
-            logger.error(`WebFileSystem._lastModifiedDate.user.false : ${webdav.Errors.BadAuthentication.message}`, new Error('Stack-Tracer'))
+            logger.warn(`WebFileSystem._lastModifiedDate.user.false : ${webdav.Errors.BadAuthentication.message}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -781,7 +781,7 @@ class WebFileSystem extends webdav.FileSystem {
                 }
             }
         } else {
-            logger.error(`WebFileSystem._create.context.user.false : ${webdav.Errors.BadAuthentication.message} path: ${path.toString()}`, new Error('Stack-Tracer'))
+            logger.warn(`WebFileSystem._create.context.user.false : ${webdav.Errors.BadAuthentication.message} path: ${path.toString()}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -835,12 +835,12 @@ class WebFileSystem extends webdav.FileSystem {
                 if (await this.loadPath(path, user)) {
                     callback(await this.deleteResource(path, user))
                 } else {
-                    logger.error(`WebFileSystem._delete : Resource could not be found! uid: ${user.uid} path: ${path.toString()}`, new Error('Stack-Tracer'))
+                    logger.error(`WebFileSystem._delete.loadPath.false : Resource could not be found! uid: ${user.uid} path: ${path.toString()}`, new Error('Stack-Tracer'))
                     callback(webdav.Errors.ResourceNotFound)
                 }
             }
         } else {
-            logger.error(`WebFileSystem._delete : ${webdav.Errors.BadAuthentication.message}`, new Error('Stack-Tracer'))
+            logger.warn(`WebFileSystem._delete.context.user.false : ${webdav.Errors.BadAuthentication.message}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -1017,7 +1017,7 @@ class WebFileSystem extends webdav.FileSystem {
                 }
             }
         } else {
-            logger.error(`WebFileSystem._openWriteStream: ${webdav.Errors.BadAuthentication.message} path: ${path.toString()}`, new Error('Stack-Tracer'))
+            logger.warn(`WebFileSystem._openWriteStream.context.user.false : ${webdav.Errors.BadAuthentication.message} path: ${path.toString()}`, new Error('Stack-Tracer'))
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -1102,7 +1102,7 @@ class WebFileSystem extends webdav.FileSystem {
                 callback(webdav.Errors.Forbidden)
             }
         } else {
-            logger.error(`WebFileSystem._move : ${webdav.Errors.BadAuthentication.message} pathTo: ${pathTo.toString()} pathFrom: ${pathFrom.toString()}`, new Error('Stack-Tracer'))
+            logger.warn(`WebFileSystem._move.context.user.false : ${webdav.Errors.BadAuthentication.message} pathTo: ${pathTo.toString()} pathFrom: ${pathFrom.toString()}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -1182,7 +1182,7 @@ class WebFileSystem extends webdav.FileSystem {
                 }
             }
         } else {
-            logger.error(`WebFileSystem._rename : ${webdav.Errors.BadAuthentication.message} pathFrom: ${pathFrom.toString()} newName: ${newName}`, new Error('Stack-Tracer'))
+            logger.warn(`WebFileSystem._rename.context.user.false : ${webdav.Errors.BadAuthentication.message} pathFrom: ${pathFrom.toString()} newName: ${newName}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
