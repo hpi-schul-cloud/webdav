@@ -58,7 +58,7 @@ export default class UserManager implements ITestableUserManager, IListUserManag
             this.users.set(name, user)
             callback(null, user)
         } else {
-            logger.error('Access denied!')
+            logger.warn(`UserManager.getUserByName.data.accessToken.false : Access denied! username: ${name}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }

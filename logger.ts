@@ -1,30 +1,42 @@
 import * as winston from 'winston';
 import {environment} from './config/globals';
 
-const logger = winston.createLogger({
-    format: winston.format.json(),
-    transports:[
-        // writes all logs with level 'error' to the error.log
-        new winston.transports.File({
-            filename: 'logs/error.log',
-            level: 'error',
-            maxsize: 5242880, // 5MB
-        }),
-    ],
-})
+
+
+const errorFormat = winston.format.combine(
+    winston.format.errors({ stack: true }),
+    winston.format.timestamp({
+        format: 'YYYY-MM-DD HH:mm:ss'
+    }),
+    winston.format.json()
+)
 
 const consoleFormat = winston.format.combine(
+    winston.format.errors({ stack: true }),
     winston.format.colorize({ message: true }),
-    winston.format.printf((info) => {
+    winston.format.splat(),
+    winston.format.printf(({message, stack}) => {
         const timeStamp = new Date().toTimeString().split(' ')[0];
-        return `[${timeStamp}] ${info.message}`;}),
+        if (stack)
+            return `[${timeStamp}] ${message} \n${stack}`;
+        return `[${timeStamp}] ${message}`;}),
+    
 ) 
 
-// if we are not in production then log (everything) to console
-if (environment.NODE_ENV !== 'production') {
-    logger.add(new winston.transports.Console({
-      format: consoleFormat,
-    }));
-}
+const logger = winston.createLogger({
+    format: errorFormat,
+    transports:[
+        // writes all logs with level 'warn' or higher ('error' too) to the error.log
+        new winston.transports.File({
+            filename: 'logs/error.log',
+            level: 'warn',
+            maxsize: 10485760, // 10MB
+        }),
+        new winston.transports.Console({
+            format: consoleFormat,
+            level: environment.LOG_LEVEL,
+          }),
+    ],
+})
 
 export default logger;

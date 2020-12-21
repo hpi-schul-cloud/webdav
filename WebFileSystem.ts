@@ -288,7 +288,7 @@ class WebFileSystem extends webdav.FileSystem {
             const res = await api({user}).get(url, {params: qs})
 
             const data = res.data
-            logger.info(data)
+            logger.debug(`WebFileSystem.loadRootDirectories.res.data: ${JSON.stringify(data)}`)
 
             // TODO: make this look fancy :)
             let adder
@@ -314,7 +314,7 @@ class WebFileSystem extends webdav.FileSystem {
                 if (this.rootPath === 'teams') {
                     const res = await api({user}).get('/teams/' + resource._id)
 
-                    logger.debug(res.data)
+                    logger.debug(`response Data on load teams: ${res.data}`)
 
                     this.resources.get(user.uid).get('/' + resource.name).role = res.data.user.role
                 }
@@ -353,7 +353,7 @@ class WebFileSystem extends webdav.FileSystem {
                 filePermissions.delete = role.delete ? true : filePermissions.delete
             })
 
-        logger.info(filePermissions)
+        logger.debug(`File-Permissions: ${JSON.stringify(filePermissions)}`)
 
         return filePermissions
     }
@@ -375,12 +375,12 @@ class WebFileSystem extends webdav.FileSystem {
 
             const data: ResourceResponse[] = res.data;
 
-            logger.info(data)
+            logger.debug(`Load Directory Response Data: ${JSON.stringify(data)}`)
 
             if (this.rootPath === 'teams') {
                 const teamRes = await api({user}).get('teams/' + owner)
 
-                logger.debug(teamRes.data)
+                logger.debug(`Response Data on load Directory in teams: ${JSON.stringify(teamRes.data)}`)
             }
 
             const resources = []
@@ -391,7 +391,7 @@ class WebFileSystem extends webdav.FileSystem {
 
             return resources
          } catch (error) {
-            logger.error(`WebFileSystem.loadDirectory.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
+            logger.error(`WebFileSystem.loadDirectory.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`, error)
             this.deleteResourceLocally(path, user)
             if (error.response.data.code === 404) {
                 throw webdav.Errors.ResourceNotFound
@@ -530,7 +530,7 @@ class WebFileSystem extends webdav.FileSystem {
     }
 
     async _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : Promise<void> {
-        logger.info("Reading file: " + path)
+        logger.info("Reading file: " + path.toString())
 
         if (info.context.user) {
             const user: User = <User> info.context.user
@@ -548,15 +548,15 @@ class WebFileSystem extends webdav.FileSystem {
 
                     callback(null, new webdav.VirtualFileReadable([ buffer ]))
                 } catch (error) {
-                    logger.error(`WebFileSystem._openReadStream.retrieveSignedUrl.error: ${error.message} uid: ${user.uid}`)
+                    logger.error(`WebFileSystem._openReadStream.retrieveSignedUrl.error: ${error.message} uid: ${user.uid}`, error)
                     callback(error)
                 }
             } else {
-                logger.error('Reading not allowed!')
+                logger.warn(`WebFileSystem._openReadStream.permissions.read.false : Reading not allowed! uid: ${user.uid}`)
                 callback(webdav.Errors.Forbidden)
             }
         } else {
-            logger.error(webdav.Errors.BadAuthentication.message)
+            logger.warn(`WebFileSystem._openReadStream.context.user.false : ${webdav.Errors.BadAuthentication.message}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -586,13 +586,13 @@ class WebFileSystem extends webdav.FileSystem {
                             callback(error)
                         }
                     } else {
-                        logger.error('Directory could not be found!')
+                        logger.error(`WebFileSystem._readDir.loadPath.false : Directory could not be found! uid: ${user.uid} path: ${path.toString()}`, new Error('Stack-Tracer'))
                         callback(webdav.Errors.ResourceNotFound)
                     }
                 }
             }
         } else {
-            logger.error(webdav.Errors.BadAuthentication.message)
+            logger.warn(`WebFileSystem._readDir.context.user.false : ${webdav.Errors.BadAuthentication.message} path: ${path.toString()}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -613,12 +613,12 @@ class WebFileSystem extends webdav.FileSystem {
                 if (await this.loadPath(path, user)) {
                     callback(null, this.resources.get(user.uid).get(path.toString()).type)
                 } else {
-                    logger.error('File could not be found!')
+                    logger.error(`WebFileSystem._type.loadPath.false : File could not be found! uid: ${info.context.user.uid} path: ${path.toString()}`, new Error('Stack-Tracer'))
                     callback(webdav.Errors.ResourceNotFound)
                 }
             }
         } else {
-            logger.error(webdav.Errors.BadAuthentication.message)
+            logger.warn(`WebFileSystem._type.context.user.false : ${webdav.Errors.BadAuthentication.message} path: ${path.toString()}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -635,7 +635,7 @@ class WebFileSystem extends webdav.FileSystem {
                 callback(webdav.Errors.None)
             }
         } else {
-            logger.error(webdav.Errors.BadAuthentication.message)
+            logger.warn(`WebFileSystem._size.user.false : ${webdav.Errors.BadAuthentication.message}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -652,7 +652,7 @@ class WebFileSystem extends webdav.FileSystem {
                 callback(webdav.Errors.None)
             }
         } else {
-            logger.error(webdav.Errors.BadAuthentication.message)
+            logger.warn(`WebFileSystem._creationDate.user.false : ${webdav.Errors.BadAuthentication.message}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -669,7 +669,7 @@ class WebFileSystem extends webdav.FileSystem {
                 callback(webdav.Errors.None)
             }
         } else {
-            logger.error(webdav.Errors.BadAuthentication.message)
+            logger.warn(`WebFileSystem._lastModifiedDate.user.false : ${webdav.Errors.BadAuthentication.message}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -715,16 +715,16 @@ class WebFileSystem extends webdav.FileSystem {
 
                     const data = res.data;
 
-                    logger.info(data)
+                    logger.debug(`WebFileSystem.createResource.post: res.data: ${JSON.stringify(data)}`)
 
                     if (data._id) {
                         this.addFileToResources(path, user, data)
                     } else {
-                        logger.error(webdav.Errors.Forbidden.message)
+                        logger.error(webdav.Errors.Forbidden.message, new Error('Stack-Tracer'))
                         return webdav.Errors.Forbidden
                     }
                 } catch (error) {
-                    logger.error(`WebFileSystem.createResource.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
+                    logger.error(`WebFileSystem.createResource.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`, error)
                     return error
                 }
             } else {
@@ -733,7 +733,7 @@ class WebFileSystem extends webdav.FileSystem {
                     await this.writeToSignedUrl(data.url, data.header, [])
                     const file = await this.writeToFileStorage(path, user, data.header, [])
 
-                    logger.debug(file)
+                    logger.debug(`createResource response data: ${file}`)
 
                     if (file._id) {
                         this.addFileToResources(path, user, file)
@@ -742,11 +742,12 @@ class WebFileSystem extends webdav.FileSystem {
                         return webdav.Errors.Forbidden
                     }
                 } catch (error) {
+                    logger.error(`Failed to create Ressource: uid: ${user.uid} path: ${path.toString()}`, error)
                     return error
                 }
             }
         } else {
-            logger.error('Creating resource not allowed!')
+            logger.error(`WebFileSystem.createResource.permissions.false : Creating resource not allowed! uid: ${user.uid} path: ${path.toString()}`, new Error('Stack-Tracer'))
             return webdav.Errors.Forbidden
         }
 
@@ -766,7 +767,7 @@ class WebFileSystem extends webdav.FileSystem {
                 if (this.rootPath === 'my') {
                     callback(await this.createResource(path, user, ctx.type))
                 } else {
-                    logger.error('Creating resource not allowed!')
+                    logger.error(`WebFileSystem._create.isAtRootLevel.true : Creating resource not allowed! path: ${path.toString()} uid: ${user.uid}`, new Error('Stack-Tracer'))
                     callback(webdav.Errors.Forbidden)
                 }
             } else if (this.resourceExists(path.getParent(), user)) {
@@ -775,12 +776,12 @@ class WebFileSystem extends webdav.FileSystem {
                 if (await this.loadPath(path.getParent(), user)) {
                     callback(await this.createResource(path, user, ctx.type))
                 } else {
-                    logger.error('Resource could not be found!')
+                    logger.error(`WebFileSystem._create.loadPath.false : Resource could not be found! path: ${path.toString()} uid: ${user.uid}`, new Error('Stack-Tracer'))
                     callback(webdav.Errors.ResourceNotFound)
                 }
             }
         } else {
-            logger.error(webdav.Errors.BadAuthentication.message)
+            logger.warn(`WebFileSystem._create.context.user.false : ${webdav.Errors.BadAuthentication.message} path: ${path.toString()}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -804,19 +805,19 @@ class WebFileSystem extends webdav.FileSystem {
 
             // Server returns error if not allowed
             if (data.code) {
-                logger.error(`WebFileSystem.deleteResource.data.code.${data.code}: ${data.message} uid: ${user.uid}`)
+                logger.error(`WebFileSystem.deleteResource.data.code.${data.code}: ${data.message} uid: ${user.uid}`, new Error('Stack-Tracer'))
                 if (data.code === 403 && data.errors?.code !== 404) {
                     return webdav.Errors.Forbidden
                 }
             } else {
-                logger.info(data)
+                logger.debug(`WebFileSystem.deleteResource.data.code.null: res.data: ${JSON.stringify(data)}`)
             }
 
             this.deleteResourceLocally(path, user)
 
             return null
         } else {
-            logger.error('Deleting resource not allowed!')
+            logger.error(`WebFileSystem.deleteResource.deletePermission.false : Deleting resource not allowed! uid: ${user.uid} path: ${path.toString()}`, new Error('Stack-Tracer'))
             return webdav.Errors.Forbidden
         }
     }
@@ -834,12 +835,12 @@ class WebFileSystem extends webdav.FileSystem {
                 if (await this.loadPath(path, user)) {
                     callback(await this.deleteResource(path, user))
                 } else {
-                    logger.error('Resource could not be found!')
+                    logger.error(`WebFileSystem._delete.loadPath.false : Resource could not be found! uid: ${user.uid} path: ${path.toString()}`, new Error('Stack-Tracer'))
                     callback(webdav.Errors.ResourceNotFound)
                 }
             }
         } else {
-            logger.error(webdav.Errors.BadAuthentication.message)
+            logger.warn(`WebFileSystem._delete.context.user.false : ${webdav.Errors.BadAuthentication.message}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -862,7 +863,7 @@ class WebFileSystem extends webdav.FileSystem {
             try {
                 res = await api({user, json: true}).patch('/fileStorage/signedUrl/' + this.getID(path, user))
             } catch (error) {
-                logger.error(`WebFileSystem.requestWritableSignedUrl.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
+                logger.error(`WebFileSystem.requestWritableSignedUrl.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`, new Error('Stack-Tracer'))
                 if (error.response.data.code === 404) {
                     this.deleteResourceLocally(path, user)
                     return this.requestWritableSignedUrl(path, user)
@@ -872,7 +873,7 @@ class WebFileSystem extends webdav.FileSystem {
             }
 
             if (res.data.code) {
-                logger.error(`WebFileSystem.requestWritableSignedUrl.error.${res.data.code}: ${res.data.message} uid: ${user.uid}`)
+                logger.error(`WebFileSystem.requestWritableSignedUrl.error.${res.data.code}: ${res.data.message} uid: ${user.uid}`, new Error('Stack-Tracer'))
                 throw webdav.Errors.Forbidden
             }
         } else {
@@ -883,14 +884,14 @@ class WebFileSystem extends webdav.FileSystem {
                     parent: this.getOwnerID(path, user) != parent ? parent : undefined
                 })
             } catch (error) {
-                logger.error(`WebFileSystem.requestWritableSignedUrl.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
+                logger.error(`WebFileSystem.requestWritableSignedUrl.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`, error)
                 throw webdav.Errors.Forbidden
             }
         }
 
         const data = res.data
 
-        logger.info(data)
+        logger.debug(`requestWritableSignedUrl res data: ${data}`)
 
         return data
     }
@@ -939,7 +940,7 @@ class WebFileSystem extends webdav.FileSystem {
 
             return res.data
         } catch (error) {
-            logger.error(`WebFileSystem.writeToFileStorage.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`)
+            logger.error(`WebFileSystem.writeToFileStorage.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`, error)
             throw webdav.Errors.Forbidden
         }
     }
@@ -965,12 +966,12 @@ class WebFileSystem extends webdav.FileSystem {
                     if (!this.resourceExists(path, user)) {
                         const file = await this.writeToFileStorage(path, user, data.header, contents)
 
-                        logger.info(file)
+                        logger.info(`Response Data on writeToFileStorage: ${file}`)
 
                         if (file._id) {
                             this.addFileToResources(path, user, file)
                         } else {
-                            logger.error(`WebFileSystem.processStream.file._id.false: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
+                            logger.error(`WebFileSystem.processStream.file._id.false: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`, new Error('Stack-Tracer'))
                         }
                     } else {
                         const res = await api({user, json: true}).patch('/files/' + this.getID(path, user), {
@@ -981,13 +982,13 @@ class WebFileSystem extends webdav.FileSystem {
                         this.resources.get(user.uid).get(path.toString()).size = Buffer.concat(contents).byteLength
                         this.resources.get(user.uid).get(path.toString()).lastModifiedDate = Date.now()
 
-                        logger.info(res.data)
+                        logger.debug(`processStream: ${JSON.stringify(res.data)}`)
                     }
                 } else {
-                    logger.error(`WebFileSystem.processStream.data.url.false: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
+                    logger.error(`WebFileSystem.processStream.data.url.false: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`, new Error('Stack-Tracer'))
                 }
             } catch (error) {
-                logger.error(`WebFileSystem.processStream.onFinish.error: ${error.message} uid: ${user.uid}`)
+                logger.error(`WebFileSystem.processStream.onFinish.error: ${error.message} uid: ${user.uid}`,error)
             }
         })
 
@@ -1007,7 +1008,7 @@ class WebFileSystem extends webdav.FileSystem {
                 if (this.canWrite(path, user)) {
                     callback(null, await this.processStream(path, user))
                 } else {
-                    logger.error('Writing not allowed!')
+                    logger.warn(`WebFileSystem._openWriteStream: Writing not allowed! uid: ${user.uid} path: ${path.toString()}`)
                     callback(webdav.Errors.Forbidden)
                 }
             } else {
@@ -1016,7 +1017,7 @@ class WebFileSystem extends webdav.FileSystem {
                 }
             }
         } else {
-            logger.error(webdav.Errors.BadAuthentication.message)
+            logger.warn(`WebFileSystem._openWriteStream.context.user.false : ${webdav.Errors.BadAuthentication.message} path: ${path.toString()}`, new Error('Stack-Tracer'))
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -1035,10 +1036,10 @@ class WebFileSystem extends webdav.FileSystem {
             `/fileStorage/${resourceID}`,
             {parent: newParentID})
             .then((res) => {
-                logger.info(res.data)
+                logger.debug(`WebFileSystem.moveResource.res.data: ${JSON.stringify(res.data)}`)
 
                 if (res.data.code === 403) {
-                    logger.error(`WebFileSystem.moveResource.error.403: ${res.data.message} uid: ${user.uid}`)
+                    logger.error(`WebFileSystem.moveResource.error.403: ${res.data.message} uid: ${user.uid}`, new Error('Stack-Tracer'))
                     return webdav.Errors.Forbidden
                 }
 
@@ -1046,8 +1047,8 @@ class WebFileSystem extends webdav.FileSystem {
                 this.deleteResourceLocally(pathFrom, user)
 
                 return null
-            }).catch(() => {
-                logger.error('File at moveResource() could not be moved', user.uid, resourceID, newParentID);
+            }).catch((error) => {
+                logger.error(`WebFileSystem.moveResource : File could not be moved ${user.uid}, ${resourceID}, ${newParentID}`, error);
                 return webdav.Errors.Forbidden
             })
     }
@@ -1059,13 +1060,13 @@ class WebFileSystem extends webdav.FileSystem {
             const user: User = <User> ctx.context.user;
 
             if(!pathTo.hasParent()){
-                logger.error(webdav.Errors.Forbidden.message)
+                logger.error(`WebFileSystem._move.hasParent.false : ${webdav.Errors.Forbidden.message} uid: ${user.uid} pathTo: ${pathTo.toString()}`, new Error('Stack-Tracer'))
                 callback(webdav.Errors.Forbidden);
                 return;
             }
 
             if (!await this.loadPath(pathFrom, user) || !await this.loadPath(pathTo.getParent(), user)){
-                logger.error('Resource could not be found!')
+                logger.error('Resource could not be found!', new Error('Stack-Tracer'))
                 callback(webdav.Errors.ResourceNotFound);
                 return ;
             }
@@ -1097,11 +1098,11 @@ class WebFileSystem extends webdav.FileSystem {
 
                 callback(await this.moveResource(fileID, toParentID, user, pathFrom, pathTo))
             } else {
-                logger.error(`WebFileSystem._move.owner.false : ${webdav.Errors.Forbidden.message} uid: ${user.uid}`)
+                logger.error(`WebFileSystem._move.owner.false : ${webdav.Errors.Forbidden.message} uid: ${user.uid}`, new Error('Stack-Tracer'))
                 callback(webdav.Errors.Forbidden)
             }
         } else {
-            logger.error(webdav.Errors.BadAuthentication.message)
+            logger.warn(`WebFileSystem._move.context.user.false : ${webdav.Errors.BadAuthentication.message} pathTo: ${pathTo.toString()} pathFrom: ${pathFrom.toString()}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
@@ -1138,7 +1139,7 @@ class WebFileSystem extends webdav.FileSystem {
                 newName
             }).then((res: AxiosResponse) => {
                 if (res.data.code) {
-                    logger.error(`WebFileSystem.renameResource.data.code.${res.data.code}: ${res.data.message} uid: ${user.uid}`)
+                    logger.error(`WebFileSystem.renameResource.data.code.${res.data.code}: ${res.data.message} uid: ${user.uid}`, new Error('Stack-Tracer'))
                     if (res.data.code === 403 && res.data.errors?.code === 403) {
                         return webdav.Errors.Forbidden
                     } else if (res.data.code === 404 || res.data.errors?.code === 404) {
@@ -1154,11 +1155,11 @@ class WebFileSystem extends webdav.FileSystem {
 
                 return null
             }).catch((error) => {
-                logger.error(error)
+                logger.error('WebFileSystem.renameResource: Error in Server communication',error)
                 return webdav.Errors.InvalidOperation
             })
         } else {
-            logger.error('Writing not allowed!')
+            logger.error(`WebFileSystem.renameResource : Writing not allowed! uid: ${user.uid} path: ${path.toString()}`, new Error('Stack-Tracer'))
             return webdav.Errors.Forbidden
         }
     }
@@ -1176,12 +1177,12 @@ class WebFileSystem extends webdav.FileSystem {
                 if (await this.loadPath(pathFrom, user)) {
                     callback(await this.renameResource(pathFrom, user, newName))
                 } else {
-                    logger.error('Resource could not be found!')
+                    logger.error(`WebFileSystem._rename : Resource could not be found! pathFrom: ${pathFrom.toString()} newName: ${newName}`, new Error('Stack-Tracer'))
                     callback(webdav.Errors.ResourceNotFound)
                 }
             }
         } else {
-            logger.error(webdav.Errors.BadAuthentication.message)
+            logger.warn(`WebFileSystem._rename.context.user.false : ${webdav.Errors.BadAuthentication.message} pathFrom: ${pathFrom.toString()} newName: ${newName}`)
             callback(webdav.Errors.BadAuthentication)
         }
     }
