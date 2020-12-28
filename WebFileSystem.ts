@@ -554,7 +554,9 @@ class WebFileSystem extends webdav.FileSystem {
      * @param {User} user               Current user
      */
     async updateParentModifiedDates (path: Path, user: User): Promise<void> {
-        // TODO: Implement this function directly in SC-Server
+        // TODO: This method and its senders can be deleted as soon as https://github.com/hpi-schul-cloud/schulcloud-server/pull/2102 gets merged
+
+        /*
         logger.info('Updating \'updatedAt\' of parent directories...')
 
         let parentPath = path.getParent()
@@ -580,6 +582,7 @@ class WebFileSystem extends webdav.FileSystem {
             parentPath = parentPath.getParent()
             parentID = this.getID(parentPath, user)
         }
+        */
     }
 
     async _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : Promise<void> {
