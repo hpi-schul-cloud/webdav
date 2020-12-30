@@ -304,10 +304,9 @@ app.get('/remote.php/dav/avatars/lehrer@schul-cloud.org/128.png', (req, res, nex
 })
 
 // HEAD Request to webdav root maybe needs to be processed, doesn't work until now
+// seems to be like some kind of "status-requests", simply responding with a 200 is sufficcient for now.
 app.head('/remote.php/webdav//', (req, res, next) => {
-    //logger.info('Requesting HEAD of root...')
-    req.url = '/remote.php/webdav/courses'
-    return app._router.handle(req,res,next)
+    res.send('')
 })
 
 /*

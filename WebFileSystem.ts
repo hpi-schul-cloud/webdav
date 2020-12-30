@@ -103,21 +103,6 @@ class WebFileSystem extends webdav.FileSystem {
         this.locks = new webdav.LocalLockManager();
         this.resources = new Map();
         this.rootPath = rootPath ? rootPath : 'courses'
-        const properties = {'http://owncloud.org/nsid':"00000009oc9yfa4s8p7l",
-        //'http://owncloud.org/nsdownloadURL':"test",
-        //'http://owncloud.org/nsdDC':1,
-        'http://owncloud.org/nspermissions':"RDNVCK",
-        //'http://owncloud.org/nschecksums':12,
-        'http://owncloud.org/nsdata-fingerprint':'',
-        'http://owncloud.org/nsshare-types':'',
-        //'DAV:getcontentlength':0,
-        'DAV:quota-available-bytes':10000000,
-        'DAV:quota-used-bytes':100000};
-        let prop
-        for (prop in properties){
-            this.props.setProperty(prop, properties[prop], {}, ()=>{})
-        }
-
     }
 
     _propertyManager (path: Path, info: PropertyManagerInfo, callback: ReturnCallback<IPropertyManager>) : void {
