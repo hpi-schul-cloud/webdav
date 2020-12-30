@@ -5,11 +5,6 @@ import UserManager from "./UserManager";
 import logger from './logger';
 import {environment} from './config/globals';
 
-import bodyParser = require('body-parser');
-import bodyParserXml = require('body-parser-xml');
-
-bodyParserXml(bodyParser)
-
 const userManager = new UserManager()
 
 const server = new webdav.WebDAVServer({
