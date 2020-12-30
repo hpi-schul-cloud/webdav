@@ -4,6 +4,7 @@ import WebFileSystem from "./WebFileSystem";
 import UserManager from "./UserManager";
 import logger from './logger';
 import {environment} from './config/globals';
+import {onwcloudConfig} from './config/owncloud';
 
 const userManager = new UserManager()
 
@@ -12,11 +13,6 @@ const server = new webdav.WebDAVServer({
     respondWithPaths : true
 });
 
-/*server.setFileSystem('', new WebFileSystem('my'),(succeeded) => {
-        if (succeeded) {
-            logger.info("Successfully mounted 'courses' file system!")
-        }
-})*/
 server.setFileSystem('courses', new WebFileSystem('courses'), (succeeded) => {
    if (succeeded) {
        logger.info("Successfully mounted 'courses' file system!")
@@ -84,171 +80,15 @@ app.get('/status.php', (req, res) => {
     })
 })
 
-// TODO: Determine what is needed
-const capabilities = {
-    "ocs":{
-       "meta":{
-          "status":"ok",
-          "statuscode":100,
-          "message":"OK",
-          "totalitems":"",
-          "itemsperpage":""
-       },
-       "data":{
-          "version":{
-             "major":10,
-             "minor":5,
-             "micro":0,
-             "string":"10.5.0",
-             "edition":"Community"
-          },
-          "capabilities":{
-             "core":{
-                "pollinterval":60,
-                "webdav-root":environment.WEBDAV_ROOT,
-                "status":{
-                   "installed":true,
-                   "maintenance":false,
-                   "needsDbUpgrade":false,
-                   "version":"10.5.0.10",
-                   "versionstring":"10.5.0",
-                   "edition":"Community",
-                   "productname":"HPI-Schul-Cloud",
-                   "hostname":"Schul-Cloud"
-                }
-             },
-             "checksums":{
-                "supportedTypes":[
-                   "SHA1"
-                ],
-                "preferredUploadType":"SHA1"
-             },
-             "files":{
-                "privateLinks":true,
-                "privateLinksDetailsParam":true,
-                "bigfilechunking":true,
-                "blacklisted_files":[
-                   ".htaccess"
-                ],
-                "undelete":true,
-                "versioning":true
-             },
-             "dav":{
-                "chunking":"1.0",
-                "reports":[
-                   "search-files"
-                ],
-                "trashbin":"1.0"
-             },
-             "files_sharing":{
-                "api_enabled":true,
-                "public":{
-                   "enabled":true,
-                   "password":{
-                      "enforced_for":{
-                         "read_only":false,
-                         "read_write":false,
-                         "upload_only":false,
-                         "read_write_delete":false
-                      },
-                      "enforced":false
-                   },
-                   "roles_api":true,
-                   "expire_date":{
-                      "enabled":false
-                   },
-                   "send_mail":false,
-                   "social_share":true,
-                   "upload":true,
-                   "multiple":true,
-                   "supports_upload_only":true,
-                   "defaultPublicLinkShareName":"Öffentlicher Link"
-                },
-                "user":{
-                   "send_mail":false,
-                   "expire_date":{
-                      "enabled":false
-                   }
-                },
-                "group":{
-                   "expire_date":{
-                      "enabled":false
-                   }
-                },
-                "resharing":true,
-                "group_sharing":true,
-                "auto_accept_share":true,
-                "share_with_group_members_only":true,
-                "share_with_membership_groups_only":true,
-                "can_share":true,
-                "user_enumeration":{
-                   "enabled":true,
-                   "group_members_only":false
-                },
-                "default_permissions":31,
-                "providers_capabilities":{
-                   "ocinternal":{
-                      "user":[
-                         "shareExpiration"
-                      ],
-                      "group":[
-                         "shareExpiration"
-                      ],
-                      "link":[
-                         "shareExpiration",
-                         "passwordProtected"
-                      ]
-                   },
-                   "ocFederatedSharing":{
-                      "remote":[
-
-                      ]
-                   }
-                },
-                "federation":{
-                   "outgoing":true,
-                   "incoming":true
-                },
-                "search_min_length":2
-             },
-             "notifications":{
-                "ocs-endpoints":[
-                   "list",
-                   "get",
-                   "delete"
-                ]
-             }
-          }
-       }
-    }
- }
-
-const config = {
-    "ocs":{
-       "meta":{
-          "status":"ok",
-          "statuscode":100,
-          "message":null
-       },
-       "data":{
-          "version":"1.7",
-          "website":"ownCloud",
-          "host":"localhost",
-          "contact":"",
-          "ssl":"false"
-       }
-    }
-}
-
 app.get('/ocs/v1.php/cloud/capabilities', (req, res) => {
     logger.info('Requesting v1 capabilities...')
-    res.send(capabilities)
+    res.send(onwcloudConfig.capabilities)
 })
 
 // Seems to get requested much earlier, however, nextcloud tries to get /remote.php/webdav
 app.get('/ocs/v2.php/cloud/capabilities', (req, res) => {
     logger.info('Requesting v2 capabilities...')
-    res.send(capabilities)
+    res.send(onwcloudConfig.capabilities)
 })
 
 app.get('/ocs/v2.php/core/navigation/apps', (req, res, next) => {
@@ -258,7 +98,7 @@ app.get('/ocs/v2.php/core/navigation/apps', (req, res, next) => {
 
 app.get('/ocs/v1.php/config', (req, res, next) => {
     logger.info('Requesting v1 config...')
-    res.send(config)
+    res.send(onwcloudConfig.config)
 })
 
 // Maybe needs to be answered: https://doc.owncloud.com/server/admin_manual/configuration/user/user_provisioning_api.html
