@@ -696,7 +696,7 @@ class WebFileSystem extends webdav.FileSystem {
             this.deleteResourceLocally(path, user)
         }
 
-        if (!this.resources.get(user.uid).get(path.getParent().toString()).permissions || this.canCreate(path.getParent(), user)) {
+        if (!this.resources.get(user.uid).get(path.getParent().toString())?.permissions || this.canCreate(path.getParent(), user)) {
             if (type.isDirectory || ['docx', 'pptx', 'xlsx'].includes(mime.extension(mime.lookup(path.fileName())))) {
                 const owner = this.getOwnerID(path, user)
                 const parent = this.getParentID(path.getParent(), user)
@@ -725,7 +725,7 @@ class WebFileSystem extends webdav.FileSystem {
                     }
                 } catch (error) {
                     logger.error(`WebFileSystem.createResource.error.${error.response.data.code}: ${error.response.data.message} uid: ${user.uid}`, error)
-                    return error
+                    return webdav.Errors.Forbidden
                 }
             } else {
                 try {
