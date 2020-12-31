@@ -884,6 +884,11 @@ class WebFileSystem extends webdav.FileSystem {
             const user: User = <User> ctx.context.user
             this.createUserFileSystem(user.uid)
 
+            if (!path.hasParent() && (this.rootPath === 'courses' || this.rootPath === 'teams')) {
+                callback(webdav.Errors.Forbidden)
+                return
+            }
+
             if (this.resourceExists(path, user)) {
                 callback(await this.deleteResource(path, user))
             } else {
