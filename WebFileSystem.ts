@@ -296,19 +296,23 @@ class WebFileSystem extends webdav.FileSystem {
                 adder = this.addFileToResources.bind(this)
             } else {
                 adder = (path: Path, user: User, resource : ResourceResponse) => {
+                    const creationDate = this.rootPath === 'courses' ? new Date(resource.createdAt) : null
+                    const lastModifiedDate = this.rootPath === 'courses' ? new Date(resource.updatedAt) : null
+
                     this.resources.get(user.uid).set(path.toString(), {
                         type: webdav.ResourceType.Directory,
                         id: resource._id,
                         size: null,
-                        creationDate: null,
-                        lastModifiedDate: null,
+                        creationDate: this.rootPath === 'courses' ? creationDate.getTime() : null,
+                        lastModifiedDate: this.rootPath === 'courses' ? lastModifiedDate.getTime() : null,
                         permissions: null
                    });
                 }
             }
 
             for (const resource of data.data) {
-                adder(new Path([resource.name]), user, resource)
+                const childPath: Path = new Path([resource.name])
+                adder(childPath, user, resource)
 
                 // TODO: Maybe can be integrated more beautiful
                 if (this.rootPath === 'teams') {
@@ -316,7 +320,12 @@ class WebFileSystem extends webdav.FileSystem {
 
                     logger.debug(`response Data on load teams: ${res.data}`)
 
-                    this.resources.get(user.uid).get('/' + resource.name).role = res.data.user.role
+                    const creationDate = new Date(res.data.createdAt)
+                    const lastModifiedDate = new Date(res.data.updatedAt)
+
+                    this.resources.get(user.uid).get(childPath.toString()).role = res.data.user.role
+                    this.resources.get(user.uid).get(childPath.toString()).creationDate = creationDate.getTime()
+                    this.resources.get(user.uid).get(childPath.toString()).lastModifiedDate = lastModifiedDate.getTime()
                 }
             }
 
@@ -376,12 +385,6 @@ class WebFileSystem extends webdav.FileSystem {
             const data: ResourceResponse[] = res.data;
 
             logger.debug(`Load Directory Response Data: ${JSON.stringify(data)}`)
-
-            if (this.rootPath === 'teams') {
-                const teamRes = await api({user}).get('teams/' + owner)
-
-                logger.debug(`Response Data on load Directory in teams: ${JSON.stringify(teamRes.data)}`)
-            }
 
             const resources = []
             for (const resource of data) {
@@ -529,6 +532,44 @@ class WebFileSystem extends webdav.FileSystem {
         throw webdav.Errors.Forbidden
     }
 
+    /*
+     * Updates the 'updatedAt'-attribute of the parent directories to time of execution
+     *
+     * @param {Path} path               Path to resource
+     * @param {User} user               Current user
+     */
+    async updateParentModifiedDates (path: Path, user: User): Promise<void> {
+        // TODO: This method and its senders can be deleted as soon as https://github.com/hpi-schul-cloud/schulcloud-server/pull/2102 gets merged
+
+        /*
+        logger.info('Updating \'updatedAt\' of parent directories...')
+
+        let parentPath = path.getParent()
+        let parentID = this.getID(parentPath, user)
+        while (!parentPath.isRoot()) {
+            if (parentPath.hasParent() || (this.rootPath !== 'courses' && this.rootPath !== 'teams')) {
+                const res = await api({user, json: true}).patch('/files/' + parentID, {
+                    updatedAt: new Date().toISOString()
+                })
+
+                logger.debug(`Update-Response:`)
+                logger.debug(res.data)
+            } else {
+                const res = await api({user, json: true}).patch((this.rootPath === 'courses' ? '/courses/' : '/teams/') + parentID, {
+                    updatedAt: new Date().toISOString()
+                })
+
+                logger.debug(`Update-Response:`)
+                logger.debug(res.data)
+            }
+            this.resources.get(user.uid).get(parentPath.toString()).lastModifiedDate = Date.now()
+
+            parentPath = parentPath.getParent()
+            parentID = this.getID(parentPath, user)
+        }
+        */
+    }
+
     async _openReadStream (path: Path, info: OpenReadStreamInfo, callback: ReturnCallback<Readable>) : Promise<void> {
         logger.info("Reading file: " + path.toString())
 
@@ -661,9 +702,21 @@ class WebFileSystem extends webdav.FileSystem {
         logger.info("Checking last modified date: " + path);
 
         if (ctx.context.user) {
-            this.createUserFileSystem(ctx.context.user.uid)
-            const lastModifiedDate = await this.getMetadata(path, 'lastModifiedDate', <User>ctx.context.user)
-            if (lastModifiedDate >= 0) {
+            const user: User = <User> ctx.context.user
+
+            this.createUserFileSystem(user.uid)
+
+            let lastModifiedDate
+
+            if (path.isRoot()) {
+                const rootResources: string[] = await this.loadRootDirectories(user)
+                const lastModifiedDates = await Promise.all(rootResources.map(async (resource) => await this.getMetadata(path.getChildPath(resource), 'lastModifiedDate', user)))
+                lastModifiedDate = Math.max(...lastModifiedDates)
+            } else {
+                lastModifiedDate = await this.getMetadata(path, 'lastModifiedDate', user)
+            }
+
+            if (lastModifiedDate > 0) {
                 callback(null, lastModifiedDate)
             } else {
                 callback(webdav.Errors.None)
@@ -746,11 +799,11 @@ class WebFileSystem extends webdav.FileSystem {
                     return error
                 }
             }
+            await this.updateParentModifiedDates(path, user)
         } else {
             logger.error(`WebFileSystem.createResource.permissions.false : Creating resource not allowed! uid: ${user.uid} path: ${path.toString()}`, new Error('Stack-Tracer'))
             return webdav.Errors.Forbidden
         }
-
 
         return null
     }
@@ -814,6 +867,8 @@ class WebFileSystem extends webdav.FileSystem {
             }
 
             this.deleteResourceLocally(path, user)
+
+            await this.updateParentModifiedDates(path, user)
 
             return null
         } else {
@@ -975,6 +1030,7 @@ class WebFileSystem extends webdav.FileSystem {
 
                         if (file._id) {
                             this.addFileToResources(path, user, file)
+                            await this.updateParentModifiedDates(path, user)
                         } else {
                             logger.error(`WebFileSystem.processStream.file._id.false: ${webdav.Errors.Forbidden.message} uid: ${user.uid}`, new Error('Stack-Tracer'))
                         }
@@ -983,6 +1039,8 @@ class WebFileSystem extends webdav.FileSystem {
                             size: Buffer.concat(contents).byteLength,
                             updatedAt: new Date().toISOString()
                         })
+
+                        await this.updateParentModifiedDates(path, user)
 
                         this.resources.get(user.uid).get(path.toString()).size = Buffer.concat(contents).byteLength
                         this.resources.get(user.uid).get(path.toString()).lastModifiedDate = Date.now()
@@ -1040,7 +1098,7 @@ class WebFileSystem extends webdav.FileSystem {
         return await api({user, json: true}).patch(
             `/fileStorage/${resourceID}`,
             {parent: newParentID})
-            .then((res) => {
+            .then(async (res) => {
                 logger.debug(`WebFileSystem.moveResource.res.data: ${JSON.stringify(res.data)}`)
 
                 if (res.data.code === 403) {
@@ -1050,6 +1108,9 @@ class WebFileSystem extends webdav.FileSystem {
 
                 this.resources.get(user.uid).set(pathTo.toString(), this.resources.get(user.uid).get(pathFrom.toString()))
                 this.deleteResourceLocally(pathFrom, user)
+
+                await this.updateParentModifiedDates(pathFrom, user)
+                await this.updateParentModifiedDates(pathTo, user)
 
                 return null
             }).catch((error) => {
@@ -1142,7 +1203,7 @@ class WebFileSystem extends webdav.FileSystem {
             return await api({user,json:true}).post('/fileStorage' + (type.isDirectory ? '/directories' : '') + '/rename', {
                 id: this.getID(path, user),
                 newName
-            }).then((res: AxiosResponse) => {
+            }).then(async (res: AxiosResponse) => {
                 if (res.data.code) {
                     logger.error(`WebFileSystem.renameResource.data.code.${res.data.code}: ${res.data.message} uid: ${user.uid}`, new Error('Stack-Tracer'))
                     if (res.data.code === 403 && res.data.errors?.code === 403) {
@@ -1155,6 +1216,8 @@ class WebFileSystem extends webdav.FileSystem {
 
                 this.resources.get(user.uid).set(path.getParent().getChildPath(newName).toString(), this.resources.get(user.uid).get(path.toString()))
                 this.deleteResourceLocally(path, user)
+
+                await this.updateParentModifiedDates(path, user)
 
                 logger.info(`File at ${path.toString()} now named ${newName}`)
 
